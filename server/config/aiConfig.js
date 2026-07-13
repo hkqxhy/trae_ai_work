@@ -19,7 +19,7 @@ export function loadAiConfig(env = process.env) {
     isProduction,
     host: env.AI_SERVER_HOST || (isProduction ? "0.0.0.0" : "127.0.0.1"),
     corsOrigin: env.CORS_ORIGIN || "",
-    port: toNumber(env.AI_SERVER_PORT, 8787),
+    port: toNumber(env.PORT || env.AI_SERVER_PORT, 8787),
     requestTimeoutMs: toNumber(env.AI_REQUEST_TIMEOUT_MS, 30000),
     maxOutputTokens: toNumber(env.AI_MAX_OUTPUT_TOKENS, 2000),
     rateLimitPerMinute: toNumber(env.AI_RATE_LIMIT_PER_MINUTE, 10),
