@@ -1,0 +1,863 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>租房雷达 | 陌生城市 AI 租房决策助手</title>
+  <style>
+    :root {
+      --bg: #f6f7f3;
+      --paper: #ffffff;
+      --ink: #171b1a;
+      --muted: #5f6864;
+      --line: #dfe4dd;
+      --accent: #0b6b4f;
+      --accent-soft: #dcefe8;
+      --warn: #bd3e2f;
+      --warn-soft: #ffe2dc;
+      --blue: #235c8c;
+      --blue-soft: #dceaf5;
+      --shadow: 0 18px 50px rgba(42, 55, 49, .10);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", Arial, sans-serif;
+      color: var(--ink);
+      background:
+        linear-gradient(135deg, rgba(11, 107, 79, .08), transparent 34%),
+        linear-gradient(315deg, rgba(35, 92, 140, .10), transparent 38%),
+        var(--bg);
+      line-height: 1.65;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    .shell {
+      width: min(1180px, calc(100% - 40px));
+      margin: 0 auto;
+    }
+
+    .nav {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      backdrop-filter: blur(18px);
+      background: rgba(246, 247, 243, .82);
+      border-bottom: 1px solid rgba(223, 228, 221, .76);
+    }
+
+    .nav-inner {
+      min-height: 68px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-weight: 800;
+      letter-spacing: 0;
+    }
+
+    .mark {
+      width: 38px;
+      height: 38px;
+      border-radius: 12px;
+      display: grid;
+      place-items: center;
+      color: white;
+      background: var(--accent);
+      box-shadow: 0 10px 22px rgba(11, 107, 79, .25);
+      font-weight: 900;
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 20px;
+      font-size: 14px;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    .hero {
+      min-height: calc(100dvh - 68px);
+      display: grid;
+      grid-template-columns: minmax(0, 1.02fr) minmax(320px, .82fr);
+      gap: 44px;
+      align-items: center;
+      padding: 58px 0 50px;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 18px;
+      color: var(--accent);
+      font-size: 14px;
+      font-weight: 800;
+    }
+
+    .eyebrow::before {
+      content: "";
+      width: 28px;
+      height: 2px;
+      background: currentColor;
+    }
+
+    h1 {
+      margin: 0;
+      max-width: 820px;
+      font-size: clamp(42px, 7vw, 86px);
+      line-height: .98;
+      letter-spacing: 0;
+    }
+
+    .lead {
+      max-width: 650px;
+      margin: 24px 0 0;
+      color: var(--muted);
+      font-size: clamp(17px, 2vw, 21px);
+    }
+
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 30px;
+    }
+
+    .button {
+      min-height: 46px;
+      border-radius: 999px;
+      padding: 11px 18px;
+      border: 1px solid var(--ink);
+      font-weight: 800;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform .18s ease, background .18s ease;
+    }
+
+    .button:active {
+      transform: translateY(1px);
+    }
+
+    .button.primary {
+      background: var(--ink);
+      color: white;
+    }
+
+    .button.secondary {
+      background: transparent;
+      color: var(--ink);
+    }
+
+    .hero-panel {
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      background: rgba(255, 255, 255, .78);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .panel-top {
+      padding: 18px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .status {
+      border-radius: 999px;
+      padding: 5px 10px;
+      color: var(--accent);
+      background: var(--accent-soft);
+      font-size: 13px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .mock-map {
+      position: relative;
+      min-height: 380px;
+      padding: 22px;
+      background:
+        linear-gradient(90deg, rgba(23, 27, 26, .04) 1px, transparent 1px),
+        linear-gradient(rgba(23, 27, 26, .04) 1px, transparent 1px);
+      background-size: 38px 38px;
+    }
+
+    .route {
+      position: absolute;
+      left: 15%;
+      right: 12%;
+      top: 42%;
+      height: 5px;
+      border-radius: 999px;
+      background: var(--accent);
+      transform: rotate(-16deg);
+      transform-origin: center;
+    }
+
+    .spot {
+      position: absolute;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--paper);
+      border: 5px solid var(--accent);
+      box-shadow: 0 8px 20px rgba(11, 107, 79, .24);
+    }
+
+    .spot.one { left: 16%; top: 57%; }
+    .spot.two { left: 48%; top: 42%; border-color: var(--blue); }
+    .spot.three { right: 13%; top: 30%; border-color: var(--warn); }
+
+    .floating-note {
+      position: absolute;
+      width: min(270px, 70%);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: rgba(255, 255, 255, .92);
+      padding: 14px;
+      box-shadow: 0 14px 30px rgba(42, 55, 49, .11);
+      font-size: 14px;
+    }
+
+    .floating-note strong {
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    .floating-note.a { left: 20px; top: 24px; }
+    .floating-note.b { right: 18px; bottom: 20px; }
+
+    section {
+      padding: 78px 0;
+    }
+
+    .section-head {
+      max-width: 740px;
+      margin-bottom: 34px;
+    }
+
+    .section-head h2 {
+      margin: 0;
+      font-size: clamp(30px, 4.6vw, 52px);
+      line-height: 1.05;
+      letter-spacing: 0;
+    }
+
+    .section-head p {
+      margin: 15px 0 0;
+      color: var(--muted);
+      font-size: 18px;
+    }
+
+    .grid {
+      display: grid;
+      gap: 18px;
+    }
+
+    .grid.three {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .grid.two {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .tile {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: rgba(255, 255, 255, .72);
+      padding: 22px;
+      box-shadow: 0 12px 30px rgba(42, 55, 49, .06);
+    }
+
+    .tile h3 {
+      margin: 0 0 9px;
+      font-size: 21px;
+      line-height: 1.25;
+    }
+
+    .tile p {
+      margin: 0;
+      color: var(--muted);
+    }
+
+    .tag {
+      display: inline-flex;
+      margin-bottom: 14px;
+      border-radius: 999px;
+      padding: 5px 10px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .tag.warn {
+      color: var(--warn);
+      background: var(--warn-soft);
+    }
+
+    .tag.blue {
+      color: var(--blue);
+      background: var(--blue-soft);
+    }
+
+    .flow {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr 1fr;
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      overflow: hidden;
+      background: var(--paper);
+      box-shadow: var(--shadow);
+    }
+
+    .flow-step {
+      padding: 24px;
+      min-height: 210px;
+      border-right: 1px solid var(--line);
+    }
+
+    .flow-step:last-child {
+      border-right: 0;
+    }
+
+    .step-num {
+      width: 34px;
+      height: 34px;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      color: white;
+      background: var(--ink);
+      font-weight: 900;
+      margin-bottom: 20px;
+    }
+
+    .demo-wrap {
+      display: grid;
+      grid-template-columns: minmax(0, .95fr) minmax(320px, 1.05fr);
+      gap: 20px;
+      align-items: stretch;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 315px;
+      resize: vertical;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 18px;
+      background: var(--paper);
+      color: var(--ink);
+      font: inherit;
+      outline: none;
+      box-shadow: 0 12px 30px rgba(42, 55, 49, .06);
+    }
+
+    textarea:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 4px rgba(11, 107, 79, .12);
+    }
+
+    .result {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: var(--paper);
+      padding: 20px;
+      box-shadow: var(--shadow);
+    }
+
+    .score-line {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 16px;
+      border-bottom: 1px solid var(--line);
+      padding-bottom: 14px;
+      margin-bottom: 14px;
+    }
+
+    .score {
+      font-size: 46px;
+      line-height: 1;
+      font-weight: 900;
+      color: var(--accent);
+    }
+
+    .risk-list,
+    .question-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: grid;
+      gap: 10px;
+    }
+
+    .risk-list li,
+    .question-list li {
+      padding: 12px 14px;
+      border-radius: 14px;
+      background: #f7f8f5;
+      border: 1px solid var(--line);
+    }
+
+    .risk-list li.high {
+      background: var(--warn-soft);
+      border-color: rgba(189, 62, 47, .28);
+    }
+
+    .comparison {
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: var(--paper);
+      box-shadow: var(--shadow);
+    }
+
+    table {
+      width: 100%;
+      min-width: 760px;
+      border-collapse: collapse;
+    }
+
+    th,
+    td {
+      text-align: left;
+      padding: 16px;
+      border-bottom: 1px solid var(--line);
+      vertical-align: top;
+    }
+
+    th {
+      color: var(--muted);
+      font-size: 14px;
+      font-weight: 800;
+      background: #fbfcf8;
+    }
+
+    tr:last-child td {
+      border-bottom: 0;
+    }
+
+    .quote {
+      border-left: 5px solid var(--accent);
+      padding: 22px 24px;
+      background: rgba(255, 255, 255, .72);
+      border-radius: 0 18px 18px 0;
+      color: var(--muted);
+      font-size: 19px;
+    }
+
+    .footer {
+      padding: 42px 0;
+      color: var(--muted);
+      border-top: 1px solid var(--line);
+    }
+
+    .reveal {
+      opacity: 0;
+      transform: translateY(18px);
+      transition: opacity .55s ease, transform .55s ease;
+    }
+
+    .reveal.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    @media (max-width: 920px) {
+      .hero,
+      .demo-wrap,
+      .grid.two {
+        grid-template-columns: 1fr;
+      }
+
+      .grid.three,
+      .flow {
+        grid-template-columns: 1fr;
+      }
+
+      .flow-step {
+        border-right: 0;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .flow-step:last-child {
+        border-bottom: 0;
+      }
+
+      .nav-links {
+        display: none;
+      }
+    }
+
+    @media (max-width: 560px) {
+      .shell {
+        width: min(100% - 24px, 1180px);
+      }
+
+      .hero {
+        padding-top: 38px;
+      }
+
+      .hero-actions {
+        flex-direction: column;
+      }
+
+      .button {
+        width: 100%;
+      }
+
+      .mock-map {
+        min-height: 330px;
+      }
+
+      section {
+        padding: 56px 0;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      html {
+        scroll-behavior: auto;
+      }
+
+      *,
+      *::before,
+      *::after {
+        animation: none !important;
+        transition: none !important;
+      }
+
+      .reveal {
+        opacity: 1;
+        transform: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <nav class="nav">
+    <div class="shell nav-inner">
+      <a href="#top" class="brand" aria-label="租房雷达首页">
+        <span class="mark">租</span>
+        <span>租房雷达</span>
+      </a>
+      <div class="nav-links" aria-label="页面导航">
+        <a href="#problem">痛点</a>
+        <a href="#flow">流程</a>
+        <a href="#demo">风险扫描</a>
+        <a href="#value">价值</a>
+      </div>
+    </div>
+  </nav>
+
+  <main id="top" class="shell">
+    <header class="hero">
+      <div>
+        <div class="eyebrow">生活娱乐赛道 · AI 租房决策助手</div>
+        <h1>去陌生城市租房，不再靠运气做决定。</h1>
+        <p class="lead">租房雷达把区域选择、房源识别、看房排雷和合同风险检查串成一条清晰流程，帮助租客用更少时间做出更稳的判断。</p>
+        <div class="hero-actions">
+          <a class="button primary" href="#demo">体验风险扫描</a>
+          <a class="button secondary" href="#flow">查看产品流程</a>
+        </div>
+      </div>
+
+      <aside class="hero-panel" aria-label="租房决策示意">
+        <div class="panel-top">
+          <strong>我的租房任务</strong>
+          <span class="status">决策中</span>
+        </div>
+        <div class="mock-map">
+          <div class="route"></div>
+          <span class="spot one" aria-hidden="true"></span>
+          <span class="spot two" aria-hidden="true"></span>
+          <span class="spot three" aria-hidden="true"></span>
+          <div class="floating-note a">
+            <strong>推荐片区 A</strong>
+            通勤 32 分钟，生活便利，预算略高但风险较低。
+          </div>
+          <div class="floating-note b">
+            <strong>房源 C 风险提醒</strong>
+            租金低于周边均价，需确认水电性质和发布者身份。
+          </div>
+        </div>
+      </aside>
+    </header>
+
+    <section id="problem">
+      <div class="section-head reveal">
+        <h2>它解决的是租房过程中的信息不对称。</h2>
+        <p>陌生城市租房最难的地方，不是找不到房源，而是不知道哪些信息可信、哪些风险必须提前问清楚。</p>
+      </div>
+      <div class="grid three">
+        <article class="tile reveal">
+          <span class="tag">区域选择</span>
+          <h3>不知道该住哪</h3>
+          <p>通勤、预算、生活便利、安全感、地铁距离混在一起，用户很难判断哪个片区真正适合自己。</p>
+        </article>
+        <article class="tile reveal">
+          <span class="tag warn">房源真伪</span>
+          <h3>看起来好不代表靠谱</h3>
+          <p>低价房源、精修图片、模糊地址、催定金话术都可能掩盖隔断、二房东、商水商电等问题。</p>
+        </article>
+        <article class="tile reveal">
+          <span class="tag blue">决策成本</span>
+          <h3>比较过程太消耗时间</h3>
+          <p>房源截图、聊天记录、费用明细分散在不同平台，最后只能凭印象和焦虑做选择。</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="flow">
+      <div class="section-head reveal">
+        <h2>从“我要租房”到“我敢签约”的四步陪跑。</h2>
+        <p>产品以 Web App 或小程序形态呈现，核心是让 AI 帮用户收集、验证、比较和排雷。</p>
+      </div>
+      <div class="flow reveal">
+        <div class="flow-step">
+          <div class="step-num">1</div>
+          <h3>生成租房画像</h3>
+          <p>填写目标城市、预算、通勤地点、合租意愿和生活偏好，AI 输出推荐片区和条件优先级。</p>
+        </div>
+        <div class="flow-step">
+          <div class="step-num">2</div>
+          <h3>扫描房源风险</h3>
+          <p>粘贴链接、文案或上传截图，识别低价异常、发布者身份不清、费用缺失和催定金风险。</p>
+        </div>
+        <div class="flow-step">
+          <div class="step-num">3</div>
+          <h3>对比候选房源</h3>
+          <p>把多个房源整理成可解释的对比表，按通勤、总成本、可信度和生活便利度给出建议。</p>
+        </div>
+        <div class="flow-step">
+          <div class="step-num">4</div>
+          <h3>看房与签约排雷</h3>
+          <p>自动生成看房清单、追问话术和合同风险提示，帮助用户在交钱前把关键问题问清楚。</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="demo">
+      <div class="section-head reveal">
+        <h2>交互演示：把房源描述变成风险清单。</h2>
+        <p>下面是一个轻量原型，用关键词和规则模拟 AI 风险扫描的输出方式，正式版本可接入多模态大模型分析链接、截图和合同。</p>
+      </div>
+      <div class="demo-wrap">
+        <div class="reveal">
+          <textarea id="listingInput" aria-label="房源描述输入">转租急出！地铁口精装一居，月租 1800，照片都是实拍，今天不定就没了。可押一付一，先交 500 定金留房。具体地址看房再说，中介费好商量，水电按公寓标准收，合同后面统一发。</textarea>
+          <div class="hero-actions">
+            <button class="button primary" type="button" id="scanButton">扫描这条房源</button>
+            <button class="button secondary" type="button" id="resetButton">换成稳妥示例</button>
+          </div>
+        </div>
+        <div class="result reveal" aria-live="polite">
+          <div class="score-line">
+            <div>
+              <strong>可信度评分</strong>
+              <div id="scoreNote">中高风险，建议谨慎约看</div>
+            </div>
+            <div class="score" id="score">46</div>
+          </div>
+          <strong>识别到的风险点</strong>
+          <ul class="risk-list" id="riskList"></ul>
+          <div style="height: 16px;"></div>
+          <strong>建议追问</strong>
+          <ul class="question-list" id="questionList"></ul>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-head reveal">
+        <h2>不是替用户选房，而是让选择更有依据。</h2>
+        <p>产品会把多个候选房源放到同一张决策表里，帮助用户看清每套房的真实成本和隐藏问题。</p>
+      </div>
+      <div class="comparison reveal">
+        <table>
+          <thead>
+            <tr>
+              <th>房源</th>
+              <th>月租与费用</th>
+              <th>通勤</th>
+              <th>主要风险</th>
+              <th>AI 建议</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>房源 A</td>
+              <td>2800 元，押一付三，中介费半个月</td>
+              <td>35 分钟，离地铁 800 米</td>
+              <td>疑似隔断，付款方式压力较大</td>
+              <td>可以约看，但必须确认房屋结构和退租规则。</td>
+            </tr>
+            <tr>
+              <td>房源 B</td>
+              <td>3200 元，押一付一，无中介费</td>
+              <td>22 分钟，离地铁 300 米</td>
+              <td>价格偏高，需核对合同主体</td>
+              <td>适合首次到陌生城市，稳定性优先。</td>
+            </tr>
+            <tr>
+              <td>房源 C</td>
+              <td>1800 元，先收定金，费用描述模糊</td>
+              <td>未知，具体地址未提供</td>
+              <td>低价异常，催定金，身份不清</td>
+              <td>不建议转账，先要求完整地址、证件和费用明细。</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="value">
+      <div class="section-head reveal">
+        <h2>价值：节省时间，也降低踩坑概率。</h2>
+        <p>这个创意既有明确的生活服务场景，也可以延展到租房平台、城市服务、毕业生安居等方向。</p>
+      </div>
+      <div class="grid two">
+        <article class="tile reveal">
+          <span class="tag">效率提升</span>
+          <h3>把零散信息整理成可比较的判断</h3>
+          <p>用户不需要反复翻聊天记录和截图，系统自动提取租金、费用、通勤、风险和待确认问题，减少无效看房。</p>
+        </article>
+        <article class="tile reveal">
+          <span class="tag blue">社会价值</span>
+          <h3>让租客在交易中拥有更多主动权</h3>
+          <p>对毕业生、异地工作者和第一次独居的人来说，工具能帮助他们识别不透明信息，缓解陌生城市租房焦虑。</p>
+        </article>
+      </div>
+      <div class="quote reveal" style="margin-top: 22px;">
+        项目核心观点：房源平台服务交易效率，租房雷达服务租客的安全感和决策质量。
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="shell">租房雷达 · AI 创意原型展示 HTML · 可作为 TRAE AI 创造力大赛报名附件上传</div>
+  </footer>
+
+  <script>
+    const input = document.getElementById("listingInput");
+    const scanButton = document.getElementById("scanButton");
+    const resetButton = document.getElementById("resetButton");
+    const scoreEl = document.getElementById("score");
+    const scoreNote = document.getElementById("scoreNote");
+    const riskList = document.getElementById("riskList");
+    const questionList = document.getElementById("questionList");
+
+    const riskRules = [
+      {
+        words: ["定金", "留房", "先交"],
+        risk: "出现提前收定金或留房费表述，存在资金安全风险。",
+        question: "定金是否可退？收款方是谁？能否先提供合同主体和房东授权证明？",
+        weight: 16
+      },
+      {
+        words: ["今天不定", "手慢无", "急出"],
+        risk: "存在催促决策话术，容易让用户跳过必要核验。",
+        question: "能否先安排实地看房并核对费用明细后再决定？",
+        weight: 12
+      },
+      {
+        words: ["具体地址看房再说", "地址看房再说", "不发地址"],
+        risk: "具体地址不透明，无法提前判断通勤和周边环境。",
+        question: "请提供小区名称、楼栋范围和离最近地铁站的步行距离。",
+        weight: 12
+      },
+      {
+        words: ["公寓标准", "商水", "商电"],
+        risk: "水电可能不是民用价格，长期居住成本可能高于预期。",
+        question: "水电费单价是多少？是否另收管理费、网费、保洁费？",
+        weight: 10
+      },
+      {
+        words: ["合同后面发", "统一发"],
+        risk: "合同条款未提前透明，押金退还和违约责任可能不清。",
+        question: "能否在看房前发送合同模板，尤其是退租、维修和押金条款？",
+        weight: 14
+      },
+      {
+        words: ["精装", "实拍"],
+        risk: "图片描述需要二次核验，建议要求当前视频和房屋细节照片。",
+        question: "能否提供带当天时间的室内视频，包含卫生间、厨房、窗外和门锁？",
+        weight: 6
+      }
+    ];
+
+    const defaultQuestions = [
+      "发布者是房东本人、中介还是二房东？是否能提供对应证明？",
+      "总费用包含哪些项目？押金、中介费、物业费、水电网费分别是多少？",
+      "是否允许提前退租？违约金和押金退还条件如何写在合同里？"
+    ];
+
+    function renderScan() {
+      const text = input.value;
+      const matched = [];
+      let score = 88;
+
+      riskRules.forEach(rule => {
+        if (rule.words.some(word => text.includes(word))) {
+          matched.push(rule);
+          score -= rule.weight;
+        }
+      });
+
+      score = Math.max(18, Math.min(96, score));
+      scoreEl.textContent = score;
+      scoreEl.style.color = score >= 75 ? "var(--accent)" : score >= 55 ? "var(--blue)" : "var(--warn)";
+      scoreNote.textContent = score >= 75 ? "整体信息较完整，可以继续核验" : score >= 55 ? "存在疑点，建议带着问题约看" : "风险偏高，转账前必须核验";
+
+      const risks = matched.length ? matched.map(rule => rule.risk) : ["暂未发现明显高风险话术，但仍需核实发布者身份、费用明细和合同条款。"];
+      const questions = [...new Set([...matched.map(rule => rule.question), ...defaultQuestions])].slice(0, 5);
+
+      riskList.innerHTML = risks.map((risk, index) => `<li class="${index < 3 && matched.length ? "high" : ""}">${risk}</li>`).join("");
+      questionList.innerHTML = questions.map(question => `<li>${question}</li>`).join("");
+    }
+
+    scanButton.addEventListener("click", renderScan);
+    resetButton.addEventListener("click", () => {
+      input.value = "房东直租，朝南一居室，月租 3200，押一付一，无中介费。小区名可提前提供，距离地铁站步行 8 分钟。水电民用，合同模板可先发，支持晚上看房确认噪音。";
+      renderScan();
+    });
+
+    const observer = new IntersectionObserver(entries => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add("visible");
+          observer.unobserve(entry.target);
+        }
+      });
+    }, { threshold: .12 });
+
+    document.querySelectorAll(".reveal").forEach(el => observer.observe(el));
+    renderScan();
+  </script>
+</body>
+</html>

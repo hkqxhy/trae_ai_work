@@ -1,0 +1,27 @@
+{
+  "name": "renting-radar",
+  "private": true,
+  "version": "0.6.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "dev:server": "node server/index.js",
+    "start": "node server/index.js",
+    "start:prod": "npm run build && node server/index.js",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview --host 127.0.0.1",
+    "test:ai:mock": "node server/tests/aiMock.test.js",
+    "test:ai:live": "node server/tests/aiLiveSmoke.test.js"
+  },
+  "dependencies": {
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.4",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
+    "typescript": "^5.9.3",
+    "vite": "^6.4.3"
+  }
+}
