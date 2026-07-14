@@ -2,6 +2,7 @@ export type AppRouteId =
   | "overview"
   | "profile"
   | "scan"
+  | "candidates"
   | "compare"
   | "checklist"
   | "negotiate"
@@ -58,6 +59,8 @@ export interface ImageScanInput {
   size: number;
   type: string;
   previewUrl: string;
+  /** Transient data URL used only for the current AI request; never persist it. */
+  dataUrl?: string;
 }
 
 export interface ListingScanInput {
@@ -106,6 +109,9 @@ export interface CandidateComparisonScore {
   commuteScore: number;
   riskScore: number;
   completenessScore: number;
+  isComparable: boolean;
+  missingFields: string[];
+  requiredMissingFields: string[];
   explanation: string[];
 }
 

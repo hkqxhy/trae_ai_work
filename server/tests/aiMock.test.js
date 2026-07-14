@@ -3,6 +3,7 @@ import { loadAiConfig } from "../config/aiConfig.js";
 import { analyzeListing } from "../services/listingAiService.js";
 import { generateNegotiationAiReply } from "../services/negotiationAiService.js";
 import { generateComparisonAiDecision } from "../services/comparisonAiService.js";
+import { buildListingMessages } from "../prompts/listingPrompt.js";
 
 const config = loadAiConfig({
   AI_PROVIDER: "mock",
@@ -43,6 +44,41 @@ const empty = await analyzeListing({
 
 assert.equal(empty.status, "insufficient_input");
 assert.deepEqual(empty.risks, []);
+
+const imageOnly = await analyzeListing({
+  config,
+  requestId: "test-image-only",
+  body: {
+    listing: {
+      mode: "image",
+      text: "",
+      url: "",
+      imageNotes: "请重点检查是否有定金要求",
+      images: [
+        {
+          name: "listing.png",
+          size: 8,
+          type: "image/png",
+          dataUrl: "data:image/png;base64,iVBORw0KGgo=",
+        },
+      ],
+    },
+  },
+});
+
+assert.equal(imageOnly.status, "success");
+assert.deepEqual(imageOnly.metadata.inputModalities, ["text", "image"]);
+assert.ok(imageOnly.disclaimer.includes("不会真实读取图片"));
+
+const multimodalMessages = buildListingMessages({
+  text: "租金 3000",
+  url: "",
+  imageNotes: "",
+  images: [{ name: "listing.png", size: 8, type: "image/png", dataUrl: "data:image/png;base64,iVBORw0KGgo=" }],
+});
+assert.ok(Array.isArray(multimodalMessages[1].content));
+assert.equal(multimodalMessages[1].content.at(-1).type, "image_url");
+assert.ok(!multimodalMessages[1].content[0].text.includes("data:image"));
 
 const redacted = await analyzeListing({
   config,

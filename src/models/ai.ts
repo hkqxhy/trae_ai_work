@@ -23,6 +23,8 @@ export type AiErrorCode =
   | "timeout"
   | "too_many_images"
   | "image_too_large"
+  | "invalid_image_data"
+  | "unsupported_media_type"
   | "unsupported_provider"
   | "not_implemented"
   | "internal_error";

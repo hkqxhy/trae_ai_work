@@ -31,6 +31,7 @@ export async function requestListingAiAnalysis(
           name: image.name,
           size: image.size,
           type: image.type,
+          dataUrl: image.dataUrl,
         })),
       },
     }),

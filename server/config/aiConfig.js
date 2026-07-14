@@ -26,10 +26,14 @@ export function loadAiConfig(env = process.env) {
     maxTextLength: toNumber(env.AI_MAX_TEXT_LENGTH, 20000),
     maxImages: toNumber(env.AI_MAX_IMAGES, 6),
     maxImageSizeMb: toNumber(env.AI_MAX_IMAGE_SIZE_MB, 8),
+    maxRequestBodyMb: toNumber(env.AI_MAX_REQUEST_BODY_MB, 64),
+    maxCandidates: toNumber(env.AI_MAX_CANDIDATES, 8),
+    trustProxy: env.AI_TRUST_PROXY === "true",
     qwen: {
       apiKey: qwenApiKey,
       baseUrl: env.QWEN_BASE_URL || "https://dashscope.aliyuncs.com/compatible-mode/v1",
       model: env.QWEN_MODEL || "qwen-plus",
+      visionModel: env.QWEN_VL_MODEL || "qwen-vl-plus",
     },
   };
 }
@@ -44,6 +48,8 @@ export function getPublicAiConfig(config) {
       maxTextLength: config.maxTextLength,
       maxImages: config.maxImages,
       maxImageSizeMb: config.maxImageSizeMb,
+      maxRequestBodyMb: config.maxRequestBodyMb,
+      maxCandidates: config.maxCandidates,
       rateLimitPerMinute: config.rateLimitPerMinute,
     },
   };

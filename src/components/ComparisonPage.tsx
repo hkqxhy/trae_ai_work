@@ -32,7 +32,10 @@ export function ComparisonPage({
       candidate,
       score: scoreCandidateForComparison(candidate, profile),
     }))
-    .sort((left, right) => right.score.score - left.score.score);
+    .sort((left, right) => {
+      const comparableDifference = Number(right.score.isComparable) - Number(left.score.isComparable);
+      return comparableDifference || right.score.score - left.score.score;
+    });
   const aiDecisionMap = new Map(aiResult?.candidates.map((decision) => [decision.candidateId, decision]));
   const scoredCandidates = localScoredCandidates
     .map(({ candidate, score }) => {
@@ -46,8 +49,11 @@ export function ComparisonPage({
         hybridScore,
       };
     })
-    .sort((left, right) => right.hybridScore - left.hybridScore);
-  const topCandidate = scoredCandidates[0];
+    .sort((left, right) => {
+      const comparableDifference = Number(right.score.isComparable) - Number(left.score.isComparable);
+      return comparableDifference || right.hybridScore - left.hybridScore;
+    });
+  const topCandidate = scoredCandidates.find(({ score }) => score.isComparable) ?? scoredCandidates[0];
   const hasAiDecision = Boolean(aiResult);
 
   function updateCandidateComparison(candidateId: string, comparison: CandidateComparison) {
@@ -128,18 +134,18 @@ export function ComparisonPage({
           <p className="section-kicker">多房源对比</p>
           <h2>把候选房源放到同一张表里比较</h2>
           <p>
-            对比表基于已保存候选房源。你可以补充费用和通勤字段，系统会结合预算、通勤上限和扫描风险给出推荐分。
+            对比表基于已保存候选房源。你可以补充费用和通勤字段，系统会结合预算、通勤上限和扫描风险给出推荐分；关键字段缺失时只显示“待补充”，不会参与可靠排名。
           </p>
         </div>
         {topCandidate ? (
           <div className="comparison-hero">
             <div>
-              <span>当前优先候选</span>
+              <span>{topCandidate.score.isComparable ? "当前优先候选" : "待补充信息"}</span>
               <strong>{topCandidate.candidate.title}</strong>
             </div>
             <div className="comparison-hero-score">
-              <strong>{topCandidate.hybridScore}</strong>
-              <span>{hasAiDecision ? "混合推荐分" : "本地推荐分"}</span>
+              <strong>{topCandidate.score.isComparable ? topCandidate.hybridScore : "待补充"}</strong>
+              <span>{topCandidate.score.isComparable ? (hasAiDecision ? "混合推荐分" : "本地推荐分") : "补齐关键字段后排名"}</span>
             </div>
           </div>
         ) : null}
@@ -267,18 +273,18 @@ export function ComparisonPage({
                       </span>
                     </td>
                     <td>
-                      <strong className={score.score < 60 ? "table-score danger" : "table-score"}>
-                        {score.score}
+                      <strong className={score.isComparable && score.score < 60 ? "table-score danger" : "table-score"}>
+                        {score.isComparable ? score.score : "待补充"}
                       </strong>
                     </td>
                     <td>
-                      <strong className={aiDecision && aiDecision.aiScore < 60 ? "table-score danger" : "table-score"}>
-                        {aiDecision?.aiScore ?? "待生成"}
+                      <strong className={score.isComparable && aiDecision && aiDecision.aiScore < 60 ? "table-score danger" : "table-score"}>
+                        {score.isComparable ? (aiDecision?.aiScore ?? "待生成") : "待补充"}
                       </strong>
                     </td>
                     <td>
-                      <strong className={hybridScore < 60 ? "table-score danger" : "table-score"}>
-                        {hybridScore}
+                      <strong className={score.isComparable && hybridScore < 60 ? "table-score danger" : "table-score"}>
+                        {score.isComparable ? hybridScore : "待补充"}
                       </strong>
                     </td>
                     <td>
@@ -304,16 +310,16 @@ export function ComparisonPage({
                     <span>{candidate.sourceLabel}</span>
                     <h3>{candidate.title}</h3>
                   </div>
-                  <strong>{hybridScore}</strong>
+                  <strong>{score.isComparable ? hybridScore : "待补充"}</strong>
                 </div>
                 <div className="score-breakdown">
-                  {aiResult ? <span>混合 {hybridScore}</span> : null}
-                  <span>本地 {score.score}</span>
-                  {aiDecision ? <span>AI {aiDecision.aiScore}</span> : null}
+                  {aiResult && score.isComparable ? <span>混合 {hybridScore}</span> : null}
+                  <span>{score.isComparable ? `本地 ${score.score}` : "本地 待补充"}</span>
+                  {aiDecision && score.isComparable ? <span>AI {aiDecision.aiScore}</span> : null}
                   <span>风险 {score.riskScore}</span>
                   <span>预算 {score.budgetScore}</span>
                   <span>通勤 {score.commuteScore}</span>
-                  <span>完整度 {score.completenessScore}</span>
+                  <span>{score.isComparable ? `完整度 ${score.completenessScore}` : `缺少 ${score.requiredMissingFields.join("、")}`}</span>
                 </div>
                 <ul className="advice-list">
                   {score.explanation.map((item) => (

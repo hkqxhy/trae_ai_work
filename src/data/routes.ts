@@ -17,6 +17,11 @@ export const routes: RouteConfig[] = [
     description: "识别房源文案、截图和链接中的风险。",
   },
   {
+    id: "candidates",
+    label: "候选房源",
+    description: "管理已保存的房源、备注与风险摘要。",
+  },
+  {
     id: "compare",
     label: "房源对比",
     description: "补充费用和通勤字段，生成综合推荐。",

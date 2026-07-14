@@ -47,6 +47,7 @@ export function ScanPage({ profile, onSaveCandidate }: ScanPageProps) {
   const [aiStatus, setAiStatus] = useState<AiRequestStatus>("idle");
   const [aiResult, setAiResult] = useState<AiAnalysisResult | null>(null);
   const [aiErrorMessage, setAiErrorMessage] = useState("");
+  const [imageUploadMessage, setImageUploadMessage] = useState("");
   const latestImagesRef = useRef<ImageScanInput[]>([]);
   const aiAbortRef = useRef<AbortController | null>(null);
 
@@ -81,11 +82,11 @@ export function ScanPage({ profile, onSaveCandidate }: ScanPageProps) {
   }
 
   async function runAiAnalysis() {
-    if (!inputLength && !scanInput.images.length) {
+    if (!inputLength && !scanInput.images.some((image) => image.dataUrl)) {
       setAiStatus("insufficient_input");
       setAiResult({
         status: "insufficient_input",
-        conclusion: "请先输入房源文字、链接或图片信息，再运行 AI 补充分析。",
+        conclusion: "请先输入房源文字、链接或图片，再运行 AI 补充分析。",
         reasons: [],
         risks: [],
         missingInformation: ["房源描述、链接文本或图片内容"],
@@ -172,24 +173,42 @@ export function ScanPage({ profile, onSaveCandidate }: ScanPageProps) {
     resetAiResult();
   }
 
-  function handleImageUpload(files: FileList | null) {
+  async function handleImageUpload(files: FileList | null) {
     if (!files?.length) {
       return;
     }
 
-    const images: ImageScanInput[] = Array.from(files)
+    const imageFiles = Array.from(files)
       .filter((file) => file.type.startsWith("image/"))
-      .slice(0, 6)
-      .map((file) => ({
-        id: `${file.name}-${file.size}-${crypto.randomUUID()}`,
-        name: file.name,
-        size: file.size,
-        type: file.type,
-        previewUrl: URL.createObjectURL(file),
-      }));
+      .slice(0, 6);
 
-    cleanupImageUrls(scanInput.images);
-    updateScanInput({ mode: "image", images });
+    if (!imageFiles.length) {
+      setImageUploadMessage("没有识别到可用的图片文件。");
+      return;
+    }
+
+    setImageUploadMessage("正在压缩并准备视觉分析…");
+    try {
+      const images = await Promise.all(
+        imageFiles.map(async (file): Promise<ImageScanInput> => {
+          const dataUrl = await prepareImageForAi(file);
+          return {
+            id: `${file.name}-${file.size}-${crypto.randomUUID()}`,
+            name: file.name,
+            size: file.size,
+            type: file.type,
+            previewUrl: dataUrl,
+            dataUrl,
+          };
+        }),
+      );
+
+      cleanupImageUrls(scanInput.images);
+      updateScanInput({ mode: "image", images });
+      setImageUploadMessage(`已准备 ${images.length} 张图片，AI 将在补充分析时读取视觉内容。`);
+    } catch {
+      setImageUploadMessage("图片处理失败，请换用 JPG、PNG 或 WebP 图片后重试。");
+    }
   }
 
   function clearImages() {
@@ -208,9 +227,9 @@ export function ScanPage({ profile, onSaveCandidate }: ScanPageProps) {
       <section className="panel scan-input-panel">
         <div className="panel-heading">
           <p className="section-kicker">多模态房源风险扫描</p>
-          <h2>文字、图片、链接都能先进入同一套判断流程</h2>
+          <h2>文字、链接和截图一起进入风险判断</h2>
           <p>
-            文字、链接和图片都可以进入同一套判断流程：文字可直接识别，链接可识别来源和风险线索，图片可作为证据补充。
+            文字和链接进入本地规则与 AI 分析；配置视觉模型后，AI 会读取截图中的文字、费用、环境和聊天语境，并把依据写入风险提示。
           </p>
         </div>
 
@@ -241,9 +260,10 @@ export function ScanPage({ profile, onSaveCandidate }: ScanPageProps) {
         {scanInput.mode === "image" ? (
           <div className="image-upload-panel">
             <label className="image-dropzone">
-              <span>上传房源截图或聊天截图</span>
+              <span>上传房源、聊天或合同截图</span>
               <input accept="image/*" multiple type="file" onChange={(event) => handleImageUpload(event.target.files)} />
             </label>
+            {imageUploadMessage ? <span className="image-upload-status">{imageUploadMessage}</span> : null}
             {scanInput.images.length ? (
               <div className="image-preview-grid">
                 {scanInput.images.map((image) => (
@@ -259,7 +279,7 @@ export function ScanPage({ profile, onSaveCandidate }: ScanPageProps) {
             ) : (
               <div className="empty-box">
                 <strong>还没有图片</strong>
-                <span>建议上传房源详情页、聊天记录、费用说明或合同截图。</span>
+                <span>建议上传房源详情页、聊天记录、费用说明或合同截图；也可以补充你希望重点核验的问题。</span>
               </div>
             )}
             {scanInput.images.length ? (
@@ -298,7 +318,7 @@ export function ScanPage({ profile, onSaveCandidate }: ScanPageProps) {
         <div className="scan-actions">
           <span>
             {inputLength || scanInput.images.length
-              ? `${inputLength} 个字符 · ${scanInput.images.length} 张图片待分析`
+              ? `${inputLength} 个字符 · ${scanInput.images.length} 张图片待视觉分析`
               : "请先输入房源信息"}
           </span>
           <div>
@@ -392,7 +412,7 @@ export function ScanPage({ profile, onSaveCandidate }: ScanPageProps) {
       <section className="panel">
         <div className="panel-heading">
           <p className="section-kicker">多模态处理说明</p>
-          <h2>这次扫描用了哪些输入</h2>
+          <h2>这次扫描实际使用了哪些输入</h2>
         </div>
         <ul className="advice-list">
           {result.modalityNotes.map((note) => (
@@ -452,7 +472,38 @@ export function ScanPage({ profile, onSaveCandidate }: ScanPageProps) {
 }
 
 function cleanupImageUrls(images: ImageScanInput[]) {
-  images.forEach((image) => URL.revokeObjectURL(image.previewUrl));
+  images.forEach((image) => {
+    if (image.previewUrl.startsWith("blob:")) {
+      URL.revokeObjectURL(image.previewUrl);
+    }
+  });
+}
+
+function prepareImageForAi(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("image_read_failed"));
+    reader.onload = () => {
+      const image = new Image();
+      image.onerror = () => reject(new Error("image_decode_failed"));
+      image.onload = () => {
+        const maxSide = 1600;
+        const scale = Math.min(1, maxSide / Math.max(image.naturalWidth, image.naturalHeight));
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+        canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+        const context = canvas.getContext("2d");
+        if (!context) {
+          reject(new Error("canvas_unavailable"));
+          return;
+        }
+        context.drawImage(image, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL("image/jpeg", 0.82));
+      };
+      image.src = String(reader.result || "");
+    };
+    reader.readAsDataURL(file);
+  });
 }
 
 function formatFileSize(size: number) {

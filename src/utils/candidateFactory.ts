@@ -63,6 +63,7 @@ function cloneScanInputForStorage(scanInput: ListingScanInput): ListingScanInput
     images: scanInput.images.map((image) => ({
       ...image,
       previewUrl: "",
+      dataUrl: undefined,
     })),
   };
 }

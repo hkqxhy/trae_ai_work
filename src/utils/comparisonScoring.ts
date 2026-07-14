@@ -1,4 +1,17 @@
-import type { CandidateComparisonScore, CandidateListing, RentingProfile } from "../models/renting";
+import type {
+  CandidateComparison,
+  CandidateComparisonScore,
+  CandidateListing,
+  RentingProfile,
+} from "../models/renting";
+
+const comparisonFields: Array<{ key: keyof CandidateComparison; label: string; required: boolean }> = [
+  { key: "monthlyRent", label: "月租", required: true },
+  { key: "totalMonthlyCost", label: "总月成本", required: true },
+  { key: "upfrontCost", label: "首期成本", required: false },
+  { key: "commuteMinutes", label: "通勤时间", required: true },
+  { key: "metroDistanceMeters", label: "地铁距离", required: false },
+];
 
 export function scoreCandidateForComparison(
   candidate: CandidateListing,
@@ -10,6 +23,12 @@ export function scoreCandidateForComparison(
   const budgetScore = getBudgetScore(monthlyCost, profile.monthlyBudgetMin, profile.monthlyBudgetMax);
   const commuteScore = getCommuteScore(comparison.commuteMinutes, profile.maxCommuteMinutes);
   const completenessScore = getCompletenessScore(candidate);
+  const missingFields = comparisonFields
+    .filter(({ key }) => !isFilledNumber(comparison[key]))
+    .map(({ label }) => label);
+  const requiredMissingFields = comparisonFields
+    .filter(({ key, required }) => required && !isFilledNumber(comparison[key]))
+    .map(({ label }) => label);
   const score = Math.round(
     riskScore * 0.35 + budgetScore * 0.25 + commuteScore * 0.25 + completenessScore * 0.15,
   );
@@ -20,8 +39,15 @@ export function scoreCandidateForComparison(
     commuteScore,
     riskScore,
     completenessScore,
-    explanation: buildExplanation(candidate, profile, monthlyCost, score),
+    isComparable: requiredMissingFields.length === 0,
+    missingFields,
+    requiredMissingFields,
+    explanation: buildExplanation(candidate, profile, monthlyCost, score, requiredMissingFields),
   };
+}
+
+function isFilledNumber(value: number | undefined) {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0;
 }
 
 function getBudgetScore(monthlyCost: number | undefined, minBudget: number, maxBudget: number) {
@@ -68,7 +94,7 @@ function getCompletenessScore(candidate: CandidateListing) {
     comparison.commuteMinutes,
     comparison.metroDistanceMeters,
   ];
-  const filledCount = fields.filter((field) => typeof field === "number" && Number.isFinite(field)).length;
+  const filledCount = fields.filter((field) => isFilledNumber(field)).length;
   return Math.round((filledCount / fields.length) * 100);
 }
 
@@ -77,8 +103,13 @@ function buildExplanation(
   profile: RentingProfile,
   monthlyCost: number | undefined,
   score: number,
+  requiredMissingFields: string[],
 ) {
   const explanation: string[] = [];
+
+  if (requiredMissingFields.length) {
+    explanation.push(`信息尚不完整，补充${requiredMissingFields.join("、")}后才会参与可靠排名。`);
+  }
   const comparison = candidate.comparison;
 
   if (score >= 80) {
