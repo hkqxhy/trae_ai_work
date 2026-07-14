@@ -66,11 +66,12 @@ npm run start:prod
 | `AI_PROVIDER` | 自动检测 | `mock` 无需密钥；`qwen` 调用千问真实 AI；留空时根据有无 Key 自动选择 |
 | `QWEN_API_KEY` | 空 | 千问 API Key，使用 qwen 时必填 |
 | `QWEN_MODEL` | `qwen-plus` | 千问模型名称 |
+| `QWEN_VL_MODEL` | `qwen-vl-plus` | 图片分析使用的视觉模型名称 |
 | `AI_SERVER_HOST` | `0.0.0.0` | 监听地址 |
 | `AI_SERVER_PORT` | `8787` | 监听端口（部署平台注入的 `PORT` 优先） |
 | `CORS_ORIGIN` | 空 | 同源部署留空；分离部署填前端地址 |
 
-> 不配置 API Key 时自动进入 Mock 模式，所有 AI 功能返回演示数据，可完整体验核心流程。
+> 不配置 API Key 时自动进入 Mock 模式，所有 AI 功能返回演示数据，可完整体验核心流程；Mock 模式会明确标记不会真实读取图片。
 
 ## 部署
 

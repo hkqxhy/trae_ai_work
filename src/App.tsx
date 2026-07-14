@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { ComparisonPage } from "./components/ComparisonPage";
+import { CandidatesPage } from "./components/CandidatesPage";
 import { ContractPage } from "./components/ContractPage";
 import { DemoPage } from "./components/DemoPage";
 import { NegotiationPage } from "./components/NegotiationPage";
@@ -27,6 +28,7 @@ import { createCandidateFromScan } from "./utils/candidateFactory";
 import { scanListingRisk } from "./utils/listingRiskScanner";
 
 const routeStageMeta: Record<AppRouteId, { kicker: string; status: string }> = {
+  candidates: { kicker: "候选房源", status: "已保存房源管理" },
   overview: { kicker: "决策工作台", status: "闭环流程就绪" },
   profile: { kicker: "需求画像", status: "画像可保存" },
   scan: { kicker: "房源扫描", status: "多模态扫描" },
@@ -127,6 +129,11 @@ function App() {
     });
   }
 
+  function handleClearCandidates() {
+    setCandidates([]);
+    saveCandidateListings([]);
+  }
+
   function handleUpdateCandidate(candidateId: string, comparison: CandidateComparison) {
     setCandidates((current) => {
       const nextCandidates = current.map((candidate) =>
@@ -218,6 +225,7 @@ function App() {
           profile={profile}
           onLoadDemoData={handleLoadDemoData}
           onDeleteCandidate={handleDeleteCandidate}
+          onClearCandidates={handleClearCandidates}
           onSaveCandidate={handleSaveCandidate}
           onUpdateCandidate={handleUpdateCandidate}
           onResetProfile={handleResetProfile}
@@ -237,6 +245,7 @@ interface PageContentProps {
   onLoadDemoData: () => void;
   onSaveCandidate: (candidate: CandidateListing) => void;
   onDeleteCandidate: (candidateId: string) => void;
+  onClearCandidates: () => void;
   onUpdateCandidate: (candidateId: string, comparison: CandidateComparison) => void;
   onSaveProfile: (profile: RentingProfile) => void;
   onResetProfile: () => void;
@@ -251,6 +260,7 @@ function PageContent({
   onLoadDemoData,
   onSaveCandidate,
   onDeleteCandidate,
+  onClearCandidates,
   onUpdateCandidate,
   onSaveProfile,
   onResetProfile,
@@ -261,6 +271,14 @@ function PageContent({
       return <ProfilePage profile={profile} onReset={onResetProfile} onSave={onSaveProfile} />;
     case "scan":
       return <ScanPage profile={profile} onSaveCandidate={onSaveCandidate} />;
+    case "candidates":
+      return (
+        <CandidatesPage
+          candidates={candidates}
+          onDeleteCandidate={onDeleteCandidate}
+          onClearCandidates={onClearCandidates}
+        />
+      );
     case "compare":
       return (
         <ComparisonPage

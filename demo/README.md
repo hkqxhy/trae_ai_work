@@ -99,6 +99,7 @@ ngrok http 8787
 | `NODE_ENV` | `production` | 生产模式监听 0.0.0.0 并托管前端产物 |
 | `AI_PROVIDER` | `mock` | `mock` 无需密钥；`qwen` 调用千问真实 AI |
 | `QWEN_API_KEY` | 空 | 千问 API Key，使用 qwen 时必填 |
+| `QWEN_VL_MODEL` | `qwen-vl-plus` | 图片分析使用的视觉模型名称 |
 | `AI_SERVER_HOST` | `0.0.0.0` | 监听地址，生产必须为 0.0.0.0 |
 | `AI_SERVER_PORT` | `8787` | 监听端口 |
 | `CORS_ORIGIN` | 空 | 同源部署留空；分离部署填前端地址 |

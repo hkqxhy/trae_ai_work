@@ -1,13 +1,14 @@
 import { createServer } from "node:http";
 import { randomUUID } from "node:crypto";
 import { readFileSync, existsSync, statSync } from "node:fs";
-import { join, extname } from "node:path";
+import { resolve, sep, extname } from "node:path";
 import { loadAiConfig, getPublicAiConfig } from "./config/aiConfig.js";
 import { analyzeListing } from "./services/listingAiService.js";
 import { generateNegotiationAiReply } from "./services/negotiationAiService.js";
 import { generateComparisonAiDecision } from "./services/comparisonAiService.js";
 import { assertRateLimit } from "./middleware/rateLimit.js";
 import { ApiError, toErrorResponse } from "./utils/httpErrors.js";
+import { validateAiRequest } from "./utils/validateAiRequest.js";
 
 const config = loadAiConfig();
 
@@ -26,11 +27,16 @@ function sendJson(response, status, body) {
 }
 
 function readJsonBody(request) {
+  const contentType = request.headers["content-type"]?.toString().toLowerCase() || "";
+  if (!contentType.includes("application/json")) {
+    throw new ApiError(415, "unsupported_media_type", "AI 接口只接受 application/json 请求。");
+  }
+
   return new Promise((resolve, reject) => {
     let body = "";
     request.on("data", (chunk) => {
       body += chunk;
-      if (body.length > 1024 * 1024) {
+      if (body.length > config.maxRequestBodyMb * 1024 * 1024) {
         reject(new ApiError(413, "payload_too_large", "请求内容过大，请减少输入后重试。"));
         request.destroy();
       }
@@ -52,10 +58,13 @@ function readJsonBody(request) {
 }
 
 function getClientIp(request) {
-  return request.headers["x-forwarded-for"]?.toString().split(",")[0] || request.socket.remoteAddress || "unknown";
+  if (config.trustProxy) {
+    return request.headers["x-forwarded-for"]?.toString().split(",")[0].trim() || request.socket.remoteAddress || "unknown";
+  }
+  return request.socket.remoteAddress || "unknown";
 }
 
-const DIST_DIR = join(process.cwd(), "dist");
+const DIST_DIR = resolve(process.cwd(), "dist");
 
 const MIME_TYPES = {
   ".html": "text/html; charset=utf-8",
@@ -82,6 +91,9 @@ function sendStatic(response, status, filePath, cacheControl) {
   response.writeHead(status, {
     "Content-Type": getContentType(extname(filePath)),
     "Cache-Control": cacheControl,
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
   });
   response.end(data);
 }
@@ -92,9 +104,9 @@ function serveStatic(response, pathname) {
   }
 
   const cleanPath = pathname.replace(/^\/+$/, "/index.html");
-  const filePath = join(DIST_DIR, cleanPath);
+  const filePath = resolve(DIST_DIR, `.${cleanPath}`);
 
-  if (!filePath.startsWith(DIST_DIR)) {
+  if (filePath !== DIST_DIR && !filePath.startsWith(`${DIST_DIR}${sep}`)) {
     return false;
   }
 
@@ -105,7 +117,7 @@ function serveStatic(response, pathname) {
     return true;
   }
 
-  const fallback = join(DIST_DIR, "index.html");
+  const fallback = resolve(DIST_DIR, "index.html");
   if (existsSync(fallback) && statSync(fallback).isFile()) {
     sendStatic(response, 200, fallback, "no-store");
     return true;
@@ -139,6 +151,7 @@ async function handleRequest(request, response) {
     if (request.method === "POST" && url.pathname === "/api/ai/listing-analysis") {
       assertRateLimit(getClientIp(request), config);
       const body = await readJsonBody(request);
+      validateAiRequest(url.pathname, body, config);
       const result = await analyzeListing({ body, config, requestId });
       sendJson(response, 200, { ok: true, result });
       return;
@@ -147,6 +160,7 @@ async function handleRequest(request, response) {
     if (request.method === "POST" && url.pathname === "/api/ai/negotiation-reply") {
       assertRateLimit(getClientIp(request), config);
       const body = await readJsonBody(request);
+      validateAiRequest(url.pathname, body, config);
       const result = await generateNegotiationAiReply({ body, config, requestId });
       sendJson(response, 200, { ok: true, result });
       return;
@@ -155,6 +169,7 @@ async function handleRequest(request, response) {
     if (request.method === "POST" && url.pathname === "/api/ai/comparison-explanation") {
       assertRateLimit(getClientIp(request), config);
       const body = await readJsonBody(request);
+      validateAiRequest(url.pathname, body, config);
       const result = await generateComparisonAiDecision({ body, config, requestId });
       sendJson(response, 200, { ok: true, result });
       return;

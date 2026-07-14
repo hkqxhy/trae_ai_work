@@ -16,6 +16,8 @@ services:
         value: production
       - key: AI_SERVER_HOST
         value: 0.0.0.0
+      - key: AI_TRUST_PROXY
+        value: "true"
       # PORT 由 Render 平台自动注入，代码会优先读取 PORT
       # AI_PROVIDER 留空时代码自动检测：有 QWEN_API_KEY 用 qwen，无 Key 用 mock
       # 如需启用千问真实 AI，在 Render 控制台手动添加以下环境变量：
@@ -25,5 +27,7 @@ services:
       #   sync: false
       # - key: QWEN_MODEL
       #   value: qwen-plus
+      # - key: QWEN_VL_MODEL
+      #   value: qwen-vl-plus
     healthCheckPath: /api/ai/health
     autoDeploy: true

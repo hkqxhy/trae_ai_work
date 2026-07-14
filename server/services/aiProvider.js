@@ -24,6 +24,7 @@ function extractJsonObject(text) {
 
 function createMockListingResult(input, metadata) {
   const text = [input.text, input.url, input.imageNotes].filter(Boolean).join("\n");
+  const hasImages = input.images.some((image) => image.dataUrl);
   const highRisk = /定金|不退|先转|身份证|合同.*后|押金不退|服务费|管理费|中介费|隔断|转租/.test(text);
 
   const result = highRisk
@@ -33,6 +34,7 @@ function createMockListingResult(input, metadata) {
         reasons: [
           "输入中出现了容易产生纠纷的付款或合同表述。",
           "本地规则结果已经给出风险基线，AI 仅补充语义层面的追问方向。",
+          ...(hasImages ? ["当前为 Mock 模式，未调用真实视觉模型；图片已进入请求链路但不会据此生成视觉结论。"] : []),
         ],
         risks: [
           {
@@ -49,25 +51,28 @@ function createMockListingResult(input, metadata) {
           "请问押金、定金、中介费和服务费分别是多少，什么情况下可退？",
           "能否在付款前先看合同模板和房屋权属或授权证明？",
         ],
-        disclaimer: "这是 Mock AI 演示数据，依赖输入完整度，仅作租房风险提示，不构成事实认定或法律意见。",
+        disclaimer: `这是 Mock AI 演示数据，依赖输入完整度，仅作租房风险提示，不构成事实认定或法律意见。${hasImages ? "当前 Mock 不会真实读取图片内容。" : ""}`,
       }
     : {
         status: "success",
         conclusion: "演示数据：AI 补充未发现需要升级为高风险的语义线索，但仍建议保留核验流程。",
-        reasons: ["输入中的费用、合同或身份信息较少，不能据此确认房源安全。"],
+        reasons: [
+          "输入中的费用、合同或身份信息较少，不能据此确认房源安全。",
+          ...(hasImages ? ["当前为 Mock 模式，未调用真实视觉模型；配置 QWEN_VL_MODEL 后才会读取图片内容。"] : []),
+        ],
         risks: [],
         missingInformation: ["发布者身份", "合同模板", "水电和其他费用结算方式"],
         suggestedQuestions: [
           "能否提供合同模板和费用明细？",
           "水电、物业、网络和维修责任分别如何约定？",
         ],
-        disclaimer: "这是 Mock AI 演示数据，依赖输入完整度，仅作租房风险提示，不构成事实认定或法律意见。",
+        disclaimer: `这是 Mock AI 演示数据，依赖输入完整度，仅作租房风险提示，不构成事实认定或法律意见。${hasImages ? "当前 Mock 不会真实读取图片内容。" : ""}`,
       };
 
   return normalizeAiAnalysisResult(result, { ...metadata, model: "mock-renting-radar", mock: true });
 }
 
-async function callQwenJson({ config, messages }) {
+async function callQwenJson({ config, messages, model = config.qwen.model }) {
   if (config.provider !== "qwen") {
     throw new ApiError(400, "unsupported_provider", "当前 AI_PROVIDER 暂不支持，请使用 mock 或 qwen。");
   }
@@ -87,7 +92,7 @@ async function callQwenJson({ config, messages }) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: config.qwen.model,
+        model,
         messages,
         temperature: 0.2,
         max_tokens: config.maxOutputTokens,
@@ -195,7 +200,7 @@ export async function callListingAiProvider({ config, messages, input, metadata 
     return createMockListingResult(input, metadata);
   }
 
-  const parsed = await callQwenJson({ config, messages });
+  const parsed = await callQwenJson({ config, messages, model: metadata.model });
 
   return normalizeAiAnalysisResult(parsed, {
     ...metadata,
