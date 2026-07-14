@@ -3468,3 +3468,217 @@ textarea:focus {
     animation: none !important;
   }
 }
+
+/* --------------------------------------------------------------------------
+   Alignment pass
+   Keep repeated information blocks on the same grid and text baseline.
+   -------------------------------------------------------------------------- */
+
+.profile-workspace,
+.scan-workspace,
+.viewing-checklist-workspace,
+.negotiation-workspace,
+.contract-workspace {
+  align-items: stretch;
+}
+
+.profile-workspace > .panel,
+.scan-workspace > .panel,
+.viewing-checklist-workspace > .panel,
+.negotiation-workspace > .panel,
+.contract-workspace > .panel {
+  min-width: 0;
+}
+
+.fact-grid,
+.candidate-meta,
+.candidate-risk-preview,
+.checklist-summary,
+.custom-checklist-summary,
+.contract-fact-list,
+.score-breakdown,
+.demo-abilities,
+.negotiation-style-options,
+.negotiation-result-grid,
+.ai-follow-up-grid,
+.contract-finding-list,
+.comparison-card-grid {
+  align-items: stretch;
+}
+
+.fact-card,
+.candidate-meta div,
+.candidate-risk-preview span,
+.checklist-summary div,
+.custom-checklist-summary div,
+.contract-fact-list li,
+.score-breakdown span,
+.demo-abilities li,
+.negotiation-style,
+.negotiation-result-grid > div,
+.ai-follow-up-grid > div,
+.contract-finding,
+.comparison-explain-card {
+  min-width: 0;
+}
+
+.inline-summary span,
+.candidate-risk-preview span,
+.score-breakdown span,
+.demo-abilities li {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.inline-summary span,
+.candidate-risk-preview span,
+.score-breakdown span {
+  min-height: 38px;
+  line-height: 1.45;
+}
+
+.risk-badge,
+.contract-finding-heading span,
+.contract-result-summary > strong {
+  max-width: 100%;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.question-list {
+  padding-left: 1.45rem;
+  list-style-position: outside;
+}
+
+.question-list li {
+  padding-left: 12px;
+}
+
+.question-list li::marker {
+  color: var(--accent);
+  font-weight: 800;
+}
+
+.risk-card,
+.contract-finding,
+.negotiation-result-grid > div,
+.ai-follow-up-grid > div {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.risk-card p,
+.contract-finding p,
+.negotiation-result-grid ul,
+.ai-follow-up-grid ul {
+  width: 100%;
+}
+
+.comparison-explain-card {
+  display: flex;
+  flex-direction: column;
+}
+
+.comparison-explain-card > .advice-list {
+  margin-top: auto;
+}
+
+.score-breakdown {
+  align-content: start;
+}
+
+.ai-actions,
+.scan-actions,
+.save-candidate-actions,
+.candidate-toolbar,
+.checklist-progress-actions,
+.contract-input-footer,
+.negotiation-footer {
+  align-items: flex-start;
+}
+
+.ai-actions > span,
+.scan-actions > span,
+.save-candidate-actions > span,
+.candidate-toolbar > span,
+.checklist-progress-actions > span,
+.contract-input-footer > div:first-child,
+.negotiation-footer > div:first-child {
+  min-width: 0;
+  max-width: 62ch;
+  line-height: 1.5;
+}
+
+.ai-actions > div,
+.scan-actions > div,
+.save-candidate-actions > button,
+.candidate-toolbar > div,
+.checklist-progress-actions > div,
+.contract-input-footer > div:last-child,
+.negotiation-footer > div:last-child {
+  flex: 0 0 auto;
+}
+
+.negotiation-style-options {
+  grid-auto-rows: 1fr;
+}
+
+.negotiation-style {
+  min-height: 144px;
+}
+
+.selected-style-summary {
+  align-items: start;
+}
+
+.selected-style-summary > div,
+.selected-style-summary > ul {
+  min-width: 0;
+}
+
+.demo-step {
+  align-items: stretch;
+}
+
+.demo-step-index,
+.demo-step-body,
+.demo-step > .button {
+  min-width: 0;
+}
+
+@media (max-width: 960px) {
+  .negotiation-style-options,
+  .comparison-card-grid,
+  .contract-finding-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .demo-step {
+    grid-template-columns: 88px minmax(0, 1fr) auto;
+    gap: 16px;
+  }
+}
+
+@media (max-width: 620px) {
+  .negotiation-style-options,
+  .comparison-card-grid,
+  .contract-finding-list {
+    grid-template-columns: 1fr;
+  }
+
+  .negotiation-style {
+    min-height: 0;
+  }
+
+  .demo-step {
+    grid-template-columns: 64px minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .demo-step > .button {
+    grid-column: 2;
+    justify-self: start;
+  }
+}
