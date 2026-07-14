@@ -2764,6 +2764,284 @@ p {
   }
 }
 
+/* --------------------------------------------------------------------------
+   Scan page simplification
+   Keep the page as one clear input -> AI conclusion flow.
+   -------------------------------------------------------------------------- */
+
+.scan-workspace-simplified {
+  grid-template-columns: minmax(0, 860px);
+  justify-content: center;
+  gap: 14px;
+}
+
+.scan-workspace-simplified > .panel {
+  grid-column: 1;
+}
+
+.scan-workspace-simplified .scan-input-panel,
+.scan-workspace-simplified .scan-ai-panel {
+  padding: clamp(20px, 3vw, 32px);
+}
+
+.scan-intro,
+.scan-ai-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.scan-intro h2,
+.scan-ai-header h2 {
+  max-width: 18ch;
+  margin-top: 6px;
+  font-size: clamp(26px, 4vw, 42px);
+  line-height: 1.08;
+}
+
+.scan-intro p:last-child {
+  max-width: 58ch;
+  margin: 12px 0 0;
+  color: var(--muted);
+}
+
+.scan-step-count {
+  flex: 0 0 auto;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: .12em;
+}
+
+.scan-workspace-simplified .mode-tabs {
+  margin-top: 28px;
+}
+
+.scan-workspace-simplified .scan-textarea-label {
+  margin-top: 16px;
+}
+
+.scan-workspace-simplified textarea {
+  min-height: 148px;
+}
+
+.scan-workspace-simplified .scan-optional-field input {
+  min-height: 46px;
+}
+
+.image-upload-status {
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.compact-button {
+  justify-self: start;
+  padding: 8px 12px;
+  font-size: 12px;
+}
+
+.scan-input-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+
+.scan-input-footer > div {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  min-width: 0;
+}
+
+.scan-input-footer > div > span {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.text-button {
+  border: 0;
+  padding: 0;
+  color: var(--accent);
+  background: transparent;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.text-button:hover {
+  color: var(--accent-deep);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.scan-primary-button {
+  min-width: 148px;
+  min-height: 48px;
+}
+
+.scan-ai-panel {
+  border-color: rgba(23, 107, 82, .30);
+  background: linear-gradient(150deg, #ffffff 0%, #f1faf5 100%);
+  box-shadow: 0 12px 34px rgba(23, 107, 82, .08);
+}
+
+.ai-source-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 5px 9px;
+  border: 1px solid rgba(23, 107, 82, .22);
+  border-radius: var(--r-pill);
+  color: var(--accent-deep);
+  background: rgba(255, 255, 255, .72);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.scan-ai-panel .ai-result {
+  gap: 14px;
+}
+
+.scan-ai-panel .ai-result-summary {
+  border-color: rgba(23, 107, 82, .22);
+  background: rgba(255, 255, 255, .78);
+}
+
+.scan-ai-panel .ai-result-summary strong {
+  font-size: 18px;
+}
+
+.ai-brief-list {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0 0 0 18px;
+  color: var(--muted);
+}
+
+.ai-risk-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.ai-risk-list .risk-card {
+  display: grid;
+  gap: 6px;
+  align-content: start;
+  padding: 14px;
+}
+
+.ai-risk-list .risk-card h3,
+.ai-risk-list .risk-card p {
+  margin: 0;
+}
+
+.ai-risk-list .risk-card span {
+  justify-self: start;
+  margin: 0;
+}
+
+.ai-risk-list .risk-card small {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.ai-more-hint {
+  grid-column: 1 / -1;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.ai-next-step {
+  display: grid;
+  gap: 8px;
+  padding: 14px 16px;
+  border-left: 3px solid var(--accent);
+  background: rgba(220, 239, 232, .45);
+}
+
+.ai-next-step ul {
+  display: grid;
+  gap: 5px;
+  margin: 0;
+  padding-left: 18px;
+  color: var(--ink);
+}
+
+.scan-rule-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.scan-rule-summary span {
+  padding: 7px 10px;
+  border-radius: var(--r-pill);
+  color: var(--muted);
+  background: rgba(255, 255, 255, .7);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.scan-rule-summary strong {
+  color: var(--accent);
+}
+
+.scan-rule-summary strong.warning {
+  color: var(--warn);
+}
+
+.scan-rule-summary strong.danger {
+  color: var(--danger);
+}
+
+.scan-ai-panel .save-candidate-box {
+  margin-top: 4px;
+}
+
+@media (max-width: 620px) {
+  .scan-intro,
+  .scan-ai-header,
+  .scan-input-footer {
+    display: grid;
+  }
+
+  .scan-step-count,
+  .ai-source-badge {
+    justify-self: start;
+  }
+
+  .scan-input-footer {
+    gap: 14px;
+  }
+
+  .scan-primary-button {
+    width: 100%;
+  }
+
+  .ai-risk-list {
+    grid-template-columns: 1fr;
+  }
+
+  .ai-more-hint {
+    grid-column: auto;
+  }
+}
+
 /* ----------------------------------
    Entrance animations & motion
    ---------------------------------- */
