@@ -1,11 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type {
   CandidateListing,
   ImageScanInput,
   ListingScanInput,
   ListingScanResult,
   RentingProfile,
-  RiskLevel,
   ScanInputMode,
 } from "../models/renting";
 import type { AiAnalysisResult, AiRequestStatus } from "../models/ai";
@@ -25,25 +24,29 @@ interface ScanPageProps {
   onSaveCandidate: (candidate: CandidateListing) => void;
 }
 
-const riskLevelLabels: Record<RiskLevel, string> = {
-  high: "高风险",
-  medium: "中风险",
-  low: "低风险",
+const modeLabels: Record<ScanInputMode, string> = {
+  text: "粘贴文字",
+  link: "粘贴链接",
+  image: "上传图片",
 };
 
-const modeLabels: Record<ScanInputMode, string> = {
-  text: "文字",
-  link: "链接",
-  image: "图片",
-};
+function createBlankScanInput(): ListingScanInput {
+  return {
+    mode: "text",
+    text: "",
+    url: "",
+    imageNotes: "",
+    images: [],
+  };
+}
 
 export function ScanPage({ profile, onSaveCandidate }: ScanPageProps) {
-  const [scanInput, setScanInput] = useState<ListingScanInput>(() => createEmptyScanInput());
+  const [scanInput, setScanInput] = useState<ListingScanInput>(createBlankScanInput);
   const [result, setResult] = useState<ListingScanResult>(() =>
-    scanListingRisk(createEmptyScanInput(), profile),
+    scanListingRisk(createBlankScanInput(), profile),
   );
   const [candidateNote, setCandidateNote] = useState("");
-  const [saveMessage, setSaveMessage] = useState("扫描后可保存为候选房源");
+  const [saveMessage, setSaveMessage] = useState("分析完成后，可以保存为候选房源");
   const [aiStatus, setAiStatus] = useState<AiRequestStatus>("idle");
   const [aiResult, setAiResult] = useState<AiAnalysisResult | null>(null);
   const [aiErrorMessage, setAiErrorMessage] = useState("");
@@ -51,9 +54,10 @@ export function ScanPage({ profile, onSaveCandidate }: ScanPageProps) {
   const latestImagesRef = useRef<ImageScanInput[]>([]);
   const aiAbortRef = useRef<AbortController | null>(null);
 
-  const scoreClass = result.level === "high" ? "danger" : result.level === "medium" ? "warning" : "";
-  const highlightedQuestions = useMemo(() => result.followUpQuestions.slice(0, 6), [result]);
   const inputLength = [scanInput.text, scanInput.url, scanInput.imageNotes].join("").trim().length;
+  const hasVisionInput = scanInput.images.some((image) => image.dataUrl);
+  const hasInput = inputLength > 0 || hasVisionInput;
+  const localScoreClass = result.level === "high" ? "danger" : result.level === "medium" ? "warning" : "";
 
   function updateScanInput(nextInput: Partial<ListingScanInput>) {
     setScanInput((current) => ({ ...current, ...nextInput }));
@@ -75,23 +79,24 @@ export function ScanPage({ profile, onSaveCandidate }: ScanPageProps) {
     updateScanInput({ mode });
   }
 
-  function runScan() {
-    setResult(scanListingRisk(scanInput, profile));
-    setSaveMessage("扫描完成，可以保存为候选房源");
-    resetAiResult();
+  async function startAiAnalysis() {
+    const localRuleResult = scanListingRisk(scanInput, profile);
+    setResult(localRuleResult);
+    setSaveMessage("分析完成后，可以保存为候选房源");
+    await runAiAnalysis(localRuleResult);
   }
 
-  async function runAiAnalysis() {
-    if (!inputLength && !scanInput.images.some((image) => image.dataUrl)) {
+  async function runAiAnalysis(localRuleResult: ListingScanResult) {
+    if (!hasInput) {
       setAiStatus("insufficient_input");
       setAiResult({
         status: "insufficient_input",
-        conclusion: "请先输入房源文字、链接或图片，再运行 AI 补充分析。",
+        conclusion: "请先粘贴房源文字、链接或上传图片。",
         reasons: [],
         risks: [],
         missingInformation: ["房源描述、链接文本或图片内容"],
-        suggestedQuestions: ["请补充租金、押金、费用、位置、发布者身份和合同信息。"],
-        disclaimer: "AI 结果依赖你提供的信息完整度，仅作租房风险提示，不构成事实认定或法律意见。",
+        suggestedQuestions: ["补充租金、押金、费用、位置和发布者身份。"],
+        disclaimer: "AI 结果依赖输入完整度，仅作租房风险提示，不构成事实认定或法律意见。",
         metadata: {
           model: "local-ui",
           requestId: "local-insufficient-input",
@@ -115,12 +120,13 @@ export function ScanPage({ profile, onSaveCandidate }: ScanPageProps) {
         {
           listing: scanInput,
           profile,
-          localRuleResult: result,
+          localRuleResult,
         },
         controller.signal,
       );
       setAiResult(nextResult);
       setAiStatus(nextResult.status === "insufficient_input" ? "insufficient_input" : "success");
+      setSaveMessage("分析完成，可以保存为候选房源");
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") {
         setAiStatus("idle");
@@ -128,7 +134,7 @@ export function ScanPage({ profile, onSaveCandidate }: ScanPageProps) {
       }
 
       setAiStatus("error");
-      setAiErrorMessage(error instanceof Error ? error.message : "AI 服务暂时不可用，本地规则结果仍可继续使用。");
+      setAiErrorMessage(error instanceof Error ? error.message : "AI 服务暂时不可用，请稍后重试。");
     } finally {
       if (aiAbortRef.current === controller) {
         aiAbortRef.current = null;
@@ -169,7 +175,8 @@ export function ScanPage({ profile, onSaveCandidate }: ScanPageProps) {
     setScanInput(nextInput);
     setResult(scanListingRisk(nextInput, profile));
     setCandidateNote("");
-    setSaveMessage("示例已加载，可以保存为候选房源");
+    setImageUploadMessage("");
+    setSaveMessage("示例已填入，点击“开始 AI 分析”");
     resetAiResult();
   }
 
@@ -187,13 +194,13 @@ export function ScanPage({ profile, onSaveCandidate }: ScanPageProps) {
       return;
     }
 
-    setImageUploadMessage("正在压缩并准备视觉分析…");
+    setImageUploadMessage("正在准备图片…");
     try {
       const images = await Promise.all(
         imageFiles.map(async (file): Promise<ImageScanInput> => {
           const dataUrl = await prepareImageForAi(file);
           return {
-            id: `${file.name}-${file.size}-${crypto.randomUUID()}`,
+            id: file.name + "-" + file.size + "-" + crypto.randomUUID(),
             name: file.name,
             size: file.size,
             type: file.type,
@@ -205,7 +212,7 @@ export function ScanPage({ profile, onSaveCandidate }: ScanPageProps) {
 
       cleanupImageUrls(scanInput.images);
       updateScanInput({ mode: "image", images });
-      setImageUploadMessage(`已准备 ${images.length} 张图片，AI 将在补充分析时读取视觉内容。`);
+      setImageUploadMessage("已准备 " + images.length + " 张图片");
     } catch {
       setImageUploadMessage("图片处理失败，请换用 JPG、PNG 或 WebP 图片后重试。");
     }
@@ -214,6 +221,7 @@ export function ScanPage({ profile, onSaveCandidate }: ScanPageProps) {
   function clearImages() {
     cleanupImageUrls(scanInput.images);
     updateScanInput({ images: [] });
+    setImageUploadMessage("");
   }
 
   function saveCandidate() {
@@ -223,17 +231,18 @@ export function ScanPage({ profile, onSaveCandidate }: ScanPageProps) {
   }
 
   return (
-    <div className="scan-workspace">
+    <div className="scan-workspace scan-workspace-simplified">
       <section className="panel scan-input-panel">
-        <div className="panel-heading">
-          <p className="section-kicker">多模态房源风险扫描</p>
-          <h2>文字、链接和截图一起进入风险判断</h2>
-          <p>
-            文字和链接进入本地规则与 AI 分析；配置视觉模型后，AI 会读取截图中的文字、费用、环境和聊天语境，并把依据写入风险提示。
-          </p>
+        <div className="scan-intro">
+          <div>
+            <p className="section-kicker">一步完成房源判断</p>
+            <h2>把房源信息交给 AI，看清风险再决定</h2>
+            <p>粘贴文字、链接或上传截图，点击一次开始分析。AI 会先给结论，再告诉你下一步核对什么。</p>
+          </div>
+          <span className="scan-step-count">01 / 02</span>
         </div>
 
-        <div className="mode-tabs" role="tablist" aria-label="扫描输入类型">
+        <div className="mode-tabs" role="tablist" aria-label="房源信息类型">
           {(["text", "link", "image"] as ScanInputMode[]).map((mode) => (
             <button
               className={scanInput.mode === mode ? "mode-tab active" : "mode-tab"}
@@ -252,7 +261,7 @@ export function ScanPage({ profile, onSaveCandidate }: ScanPageProps) {
             <input
               value={scanInput.url}
               onChange={(event) => updateScanInput({ url: event.target.value })}
-              placeholder="粘贴小红书、豆瓣、平台房源或中介页面链接"
+              placeholder="粘贴平台房源链接，也可以把帖子文字一起粘贴到下方"
             />
           </label>
         ) : null}
@@ -261,7 +270,7 @@ export function ScanPage({ profile, onSaveCandidate }: ScanPageProps) {
           <div className="image-upload-panel">
             <label className="image-dropzone">
               <span>上传房源、聊天或合同截图</span>
-              <input accept="image/*" multiple type="file" onChange={(event) => handleImageUpload(event.target.files)} />
+              <input accept="image/*" multiple type="file" onChange={(event) => void handleImageUpload(event.target.files)} />
             </label>
             {imageUploadMessage ? <span className="image-upload-status">{imageUploadMessage}</span> : null}
             {scanInput.images.length ? (
@@ -276,14 +285,9 @@ export function ScanPage({ profile, onSaveCandidate }: ScanPageProps) {
                   </figure>
                 ))}
               </div>
-            ) : (
-              <div className="empty-box">
-                <strong>还没有图片</strong>
-                <span>建议上传房源详情页、聊天记录、费用说明或合同截图；也可以补充你希望重点核验的问题。</span>
-              </div>
-            )}
+            ) : null}
             {scanInput.images.length ? (
-              <button className="button secondary" type="button" onClick={clearImages}>
+              <button className="button secondary compact-button" type="button" onClick={clearImages}>
                 清空图片
               </button>
             ) : null}
@@ -291,74 +295,66 @@ export function ScanPage({ profile, onSaveCandidate }: ScanPageProps) {
         ) : null}
 
         <label className="scan-textarea-label">
-          <span>{scanInput.mode === "image" ? "图片备注或 OCR 文本" : "房源描述、平台文案或聊天片段"}</span>
+          <span>{scanInput.mode === "image" ? "图片里的文字或补充说明（可选）" : "房源文字"}</span>
           <textarea
             value={scanInput.text}
             onChange={(event) => updateScanInput({ text: event.target.value })}
-            placeholder={
-              scanInput.mode === "image"
-                ? "可手动补充截图里的关键文字，例如租金、押金、水电费、地址、中介话术"
-                : "粘贴房源文案，例如租金、地址、付款方式、水电费、发布者身份等"
-            }
+            placeholder="例如：租金、押金、地址、付款方式、发布者身份、合同或聊天内容"
           />
         </label>
 
         {scanInput.mode === "image" ? (
-          <label className="scan-textarea-label">
-            <span>看图时希望重点检查什么</span>
-            <textarea
-              className="compact-textarea"
+          <label className="scan-textarea-label scan-optional-field">
+            <span>想让 AI 重点看什么（可选）</span>
+            <input
               value={scanInput.imageNotes}
               onChange={(event) => updateScanInput({ imageNotes: event.target.value })}
-              placeholder="例如：看墙角是否发霉、窗外是否遮挡、聊天截图中有没有定金和合同条款"
+              placeholder="例如：重点检查定金条款、费用说明或墙角发霉"
             />
           </label>
         ) : null}
 
-        <div className="scan-actions">
-          <span>
-            {inputLength || scanInput.images.length
-              ? `${inputLength} 个字符 · ${scanInput.images.length} 张图片待视觉分析`
-              : "请先输入房源信息"}
-          </span>
+        <div className="scan-input-footer">
           <div>
-            <button className="button secondary" type="button" onClick={() => loadSample("safer")}>
-              稳妥示例
-            </button>
-            <button className="button secondary" type="button" onClick={() => loadSample("risky")}>
-              高风险示例
-            </button>
-            <button className="button secondary" type="button" onClick={() => loadSample("link")}>
-              小红书示例
-            </button>
-            <button className="button primary" type="button" onClick={runScan}>
-              扫描房源
+            <span>{hasInput ? inputLength + " 个文字字符 · " + scanInput.images.length + " 张图片" : "还没有输入内容"}</span>
+            <button className="text-button" type="button" onClick={() => loadSample("risky")}>
+              填入风险示例
             </button>
           </div>
+          <button className="button primary scan-primary-button" disabled={!hasInput || aiStatus === "loading"} type="button" onClick={() => void startAiAnalysis()}>
+            {aiStatus === "loading" ? "AI 正在分析…" : aiResult ? "重新 AI 分析" : "开始 AI 分析"}
+          </button>
         </div>
       </section>
 
-      <section className="panel scan-result-panel">
-        <div className="score-header">
+      <section className="panel scan-ai-panel">
+        <div className="scan-ai-header">
           <div>
-            <p className="section-kicker">可信度评分</p>
-            <h2>{result.verdict}</h2>
+            <p className="section-kicker">02 / 02 · 主要结论</p>
+            <h2>AI 分析结果</h2>
           </div>
-          <strong className={`scan-score ${scoreClass}`}>{result.score}</strong>
+          {aiResult ? <span className="ai-source-badge">{aiResult.metadata.mock ? "Mock 演示" : "视觉模型"}</span> : null}
         </div>
-        <p className="scan-recommendation">{result.recommendation}</p>
 
-        <div className="fact-grid">
-          {result.detectedFacts.map((fact) => (
-            <div className="fact-card" key={fact.label}>
-              <span>{fact.label}</span>
-              <strong>{fact.value}</strong>
-            </div>
-          ))}
-        </div>
+        <AiResultBoundary result={aiResult} status={aiStatus} errorMessage={aiErrorMessage} />
+
+        {aiStatus === "loading" ? (
+          <button className="text-button" type="button" onClick={cancelAiAnalysis}>
+            取消分析
+          </button>
+        ) : null}
+
+        {aiResult ? (
+          <div className="scan-rule-summary">
+            <span>本地规则基线 <strong className={localScoreClass}>{result.score}</strong></span>
+            <span>已发现 {result.risks.length} 个辅助提醒</span>
+            <span>{result.detectedFacts.find((fact) => fact.label === "识别月租")?.value || "尚未识别月租"}</span>
+          </div>
+        ) : null}
+
         <div className="save-candidate-box">
           <label>
-            <span>候选备注</span>
+            <span>保存到候选房源（可选）</span>
             <input
               value={candidateNote}
               onChange={(event) => setCandidateNote(event.target.value)}
@@ -367,105 +363,11 @@ export function ScanPage({ profile, onSaveCandidate }: ScanPageProps) {
           </label>
           <div className="save-candidate-actions">
             <span>{saveMessage}</span>
-            <button className="button primary" type="button" onClick={saveCandidate}>
-              保存为候选
+            <button className="button secondary" disabled={!aiResult} type="button" onClick={saveCandidate}>
+              保存候选
             </button>
           </div>
         </div>
-      </section>
-
-      <section className="panel">
-        <div className="panel-heading">
-          <p className="section-kicker">识别到的风险点</p>
-          <h2>{result.risks.length ? `共 ${result.risks.length} 项需要确认` : "暂未发现明显高风险话术"}</h2>
-        </div>
-        {result.risks.length ? (
-          <div className="risk-card-list">
-            {result.risks.map((risk) => (
-              <article className={`risk-card ${risk.level}`} key={risk.id}>
-                <span>{riskLevelLabels[risk.level]}</span>
-                <h3>{risk.title}</h3>
-                <p>{risk.reason}</p>
-              </article>
-            ))}
-          </div>
-        ) : (
-          <div className="empty-box">
-            <strong>继续核验，不等于已经安全</strong>
-            <span>请继续确认发布者身份、费用明细、合同模板和现场居住条件。</span>
-          </div>
-        )}
-      </section>
-
-      <section className="panel">
-        <div className="panel-heading">
-          <p className="section-kicker">建议追问</p>
-          <h2>约看或转账前，先问这些问题</h2>
-        </div>
-        <ol className="question-list">
-          {highlightedQuestions.map((question) => (
-            <li key={question}>{question}</li>
-          ))}
-        </ol>
-      </section>
-
-      <section className="panel">
-        <div className="panel-heading">
-          <p className="section-kicker">多模态处理说明</p>
-          <h2>这次扫描实际使用了哪些输入</h2>
-        </div>
-        <ul className="advice-list">
-          {result.modalityNotes.map((note) => (
-            <li key={note}>{note}</li>
-          ))}
-        </ul>
-      </section>
-
-      <section className="panel">
-        <div className="panel-heading">
-          <p className="section-kicker">结合你的画像</p>
-          <h2>这套房和你的需求有什么关系</h2>
-        </div>
-        <ul className="advice-list">
-          {result.profileNotes.map((note) => (
-            <li key={note}>{note}</li>
-          ))}
-        </ul>
-      </section>
-
-      <section className="panel span-full ai-analysis-panel">
-        <div className="panel-heading">
-          <p className="section-kicker">AI 补充分析</p>
-          <h2>补充判断语义风险和遗漏信息</h2>
-          <p>
-            AI 只补充语义风险，不覆盖本地评分。结果会保留本地规则依据，方便你继续核对事实、费用和合同边界。
-          </p>
-        </div>
-        <div className="ai-actions">
-          <span>
-            {aiStatus === "loading"
-              ? "正在等待服务端返回"
-              : aiResult
-                ? "已生成补充分析"
-                : "需要你手动触发，浏览器不会保存敏感配置"}
-          </span>
-          <div>
-            {aiStatus === "loading" ? (
-              <button className="button secondary" type="button" onClick={cancelAiAnalysis}>
-                取消
-              </button>
-            ) : null}
-            <button
-              className="button primary"
-              disabled={aiStatus === "loading"}
-              type="button"
-              onClick={runAiAnalysis}
-            >
-              {aiResult ? "重新 AI 分析" : "AI 补充分析"}
-            </button>
-          </div>
-        </div>
-        <AiResultBoundary result={aiResult} status={aiStatus} errorMessage={aiErrorMessage} />
       </section>
     </div>
   );
@@ -508,8 +410,8 @@ function prepareImageForAi(file: File): Promise<string> {
 
 function formatFileSize(size: number) {
   if (size < 1024 * 1024) {
-    return `${Math.max(1, Math.round(size / 1024))} KB`;
+    return Math.max(1, Math.round(size / 1024)) + " KB";
   }
 
-  return `${(size / 1024 / 1024).toFixed(1)} MB`;
+  return (size / 1024 / 1024).toFixed(1) + " MB";
 }

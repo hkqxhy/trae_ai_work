@@ -17,8 +17,8 @@ export function AiResultBoundary({ result, status, errorMessage }: AiResultBound
   if (status === "idle") {
     return (
       <div className="ai-empty-state">
-        <strong>AI 补充分析尚未运行</strong>
-        <span>先完成本地扫描，再手动触发 AI；规则结果会一直保留。</span>
+        <strong>还没有分析结果</strong>
+        <span>提交房源信息后，AI 会直接给出风险结论和下一步。</span>
       </div>
     );
   }
@@ -27,7 +27,7 @@ export function AiResultBoundary({ result, status, errorMessage }: AiResultBound
     return (
       <div className="ai-empty-state">
         <strong>正在分析</strong>
-        <span>请求服务端适配层中，本地规则结果不会被清空。</span>
+        <span>AI 正在读取文字、链接和图片内容，请稍候。</span>
       </div>
     );
   }
@@ -49,56 +49,47 @@ export function AiResultBoundary({ result, status, errorMessage }: AiResultBound
     <div className="ai-result">
       <div className="ai-result-summary">
         <div>
-          <span>AI 补充分析</span>
+          <span>AI 主结论</span>
           <strong>{result.conclusion}</strong>
         </div>
+        <small>{result.metadata.mock ? "Mock 演示" : result.metadata.model}</small>
       </div>
 
       {result.reasons.length ? (
-        <ul className="advice-list">
-          {result.reasons.map((reason) => (
+        <ul className="ai-brief-list">
+          {result.reasons.slice(0, 2).map((reason) => (
             <li key={reason}>{reason}</li>
           ))}
         </ul>
       ) : null}
 
       {result.risks.length ? (
-        <div className="risk-card-list ai-risk-list">
-          {result.risks.map((risk) => (
+        <div className="ai-risk-list">
+          {result.risks.slice(0, 4).map((risk) => (
             <article className={`risk-card ${risk.level}`} key={risk.id}>
-              <span>AI 补充提示 · {riskLevelLabels[risk.level]}</span>
+              <span>{riskLevelLabels[risk.level]}</span>
               <h3>{risk.title}</h3>
-              <blockquote>{risk.evidence}</blockquote>
-              <p>{risk.explanation}</p>
-              <strong>{risk.followUpQuestion}</strong>
+              <p>{risk.evidence || risk.explanation}</p>
+              <small>下一步：{risk.followUpQuestion}</small>
             </article>
           ))}
+          {result.risks.length > 4 ? <span className="ai-more-hint">还有 {result.risks.length - 4} 项风险，建议结合原始信息逐条核对。</span> : null}
         </div>
       ) : (
         <div className="empty-box">
-          <strong>AI 未新增风险点</strong>
-          <span>这不等于房源安全，仍以线下核验、合同和付款边界为准。</span>
+          <strong>AI 暂未识别出明显风险点</strong>
+          <span>这不等于房源安全，仍需核对合同、付款和现场情况。</span>
         </div>
       )}
 
       {result.missingInformation.length || result.suggestedQuestions.length ? (
-        <div className="ai-follow-up-grid">
-          <div>
-            <strong>仍缺信息</strong>
-            <ul>
-              {result.missingInformation.map((item) => (
-                <li key={item}>{item}</li>
-              ))}
-            </ul>
-          </div>
-          <div>
-            <strong>建议追问</strong>
-            <ul>
-              {result.suggestedQuestions.map((question) => (
-                <li key={question}>{question}</li>
-              ))}
-            </ul>
-          </div>
+        <div className="ai-next-step">
+          <strong>下一步先做什么</strong>
+          <ul>
+            {[...result.missingInformation, ...result.suggestedQuestions].slice(0, 4).map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
         </div>
       ) : null}
 
