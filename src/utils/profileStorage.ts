@@ -1,7 +1,24 @@
-import { starterProfile } from "../data/mockData";
 import type { RentingProfile } from "../models/renting";
+import { readStorageJson, removeStorageItem, writeStorageJson } from "./browserStorage";
 
-const STORAGE_KEY = "renting-radar.profile.v1";
+const STORAGE_KEY = "renting-radar.profile.v2";
+const LEGACY_STORAGE_KEY = "renting-radar.profile.v1";
+const SCHEMA_VERSION = 2;
+
+interface ProfileStorageEnvelope {
+  version: number;
+  profile: RentingProfile;
+}
+
+export const emptyRentingProfile: RentingProfile = {
+  city: "",
+  commuteTarget: "",
+  monthlyBudgetMin: 0,
+  monthlyBudgetMax: 0,
+  maxCommuteMinutes: 45,
+  acceptsSharedHousing: false,
+  preferences: [],
+};
 
 function isRentingProfile(value: unknown): value is RentingProfile {
   if (!value || typeof value !== "object") {
@@ -22,36 +39,39 @@ function isRentingProfile(value: unknown): value is RentingProfile {
 }
 
 export function loadRentingProfile(): RentingProfile {
-  if (typeof window === "undefined") {
-    return starterProfile;
+  const storedValue = readStorageJson(STORAGE_KEY);
+  if (isProfileEnvelope(storedValue) && isRentingProfile(storedValue.profile)) {
+    return storedValue.profile;
   }
 
-  const rawProfile = window.localStorage.getItem(STORAGE_KEY);
-
-  if (!rawProfile) {
-    return starterProfile;
+  const legacyValue = readStorageJson(LEGACY_STORAGE_KEY);
+  if (isRentingProfile(legacyValue)) {
+    if (saveRentingProfile(legacyValue)) {
+      removeStorageItem(LEGACY_STORAGE_KEY);
+    }
+    return legacyValue;
   }
 
-  try {
-    const parsedProfile: unknown = JSON.parse(rawProfile);
-    return isRentingProfile(parsedProfile) ? parsedProfile : starterProfile;
-  } catch {
-    return starterProfile;
-  }
+  return emptyRentingProfile;
 }
 
 export function saveRentingProfile(profile: RentingProfile) {
-  if (typeof window === "undefined") {
-    return;
-  }
-
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(profile));
+  const envelope: ProfileStorageEnvelope = {
+    version: SCHEMA_VERSION,
+    profile,
+  };
+  return writeStorageJson(STORAGE_KEY, envelope);
 }
 
 export function resetRentingProfile() {
-  if (typeof window === "undefined") {
-    return;
-  }
+  removeStorageItem(STORAGE_KEY);
+  removeStorageItem(LEGACY_STORAGE_KEY);
+}
 
-  window.localStorage.removeItem(STORAGE_KEY);
+function isProfileEnvelope(value: unknown): value is ProfileStorageEnvelope {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const envelope = value as Partial<ProfileStorageEnvelope>;
+  return envelope.version === SCHEMA_VERSION && Boolean(envelope.profile);
 }

@@ -223,6 +223,9 @@ function buildLinkRisks(input: ListingScanInput): ListingRisk[] {
       title: "社交平台房源需要二次核验",
       reason: "社交平台帖子更适合发现线索，但房源主体、费用和合同信息通常不完整。",
       followUpQuestion: "能否提供房东或中介身份、完整地址、费用明细、合同模板和线下看房安排？",
+      evidence: `链接来源识别为${platform}。`,
+      source: "link-check",
+      verificationStatus: "pending",
     });
   }
 
@@ -233,6 +236,9 @@ function buildLinkRisks(input: ListingScanInput): ListingRisk[] {
       title: "链接格式无法识别",
       reason: "链接无法解析平台来源，系统无法判断信息来源和后续核验路径。",
       followUpQuestion: "能否提供可打开的原始链接，或补充房源截图和文字描述？",
+      evidence: "提供的链接无法解析为有效网址。",
+      source: "link-check",
+      verificationStatus: "pending",
     });
   }
 
@@ -251,6 +257,9 @@ function buildImageRisks(input: ListingScanInput): ListingRisk[] {
       title: "图片内容需要多模态模型进一步读取",
       reason: "图片可以作为证据补充，但房间结构、文字和异常痕迹仍建议结合现场核验确认。",
       followUpQuestion: "请补充图片中的关键文字，并在线下看房时重点核对对应细节。",
+      evidence: `本次输入包含 ${input.images.length} 张图片。`,
+      source: "image-check",
+      verificationStatus: "pending",
     },
     {
       id: "image-angle-verification",
@@ -258,6 +267,9 @@ function buildImageRisks(input: ListingScanInput): ListingRisk[] {
       title: "房源图片需要补齐关键角度",
       reason: "仅凭平台图片很难判断采光、通风、墙角发霉、卫生间反味和窗外环境。",
       followUpQuestion: "能否补充厨房、卫生间、窗外、门锁、墙角和楼道的视频或照片？",
+      evidence: `现有图片共 ${input.images.length} 张，仍需补齐现场角度。`,
+      source: "image-check",
+      verificationStatus: "pending",
     },
   ];
 
@@ -269,6 +281,9 @@ function buildImageRisks(input: ListingScanInput): ListingRisk[] {
       title: "图片文件较大",
       reason: "图片过大可能影响上传和处理速度。",
       followUpQuestion: "是否可以保留清晰度的同时压缩图片，或只上传关键房间细节？",
+      evidence: `${largeImages.length} 张图片原始文件超过 5 MB。`,
+      source: "image-check",
+      verificationStatus: "pending",
     });
   }
 
@@ -373,6 +388,9 @@ export function scanListingRisk(input: ListingScanInput, profile: RentingProfile
       title: "发布者身份未明确",
       reason: "输入信息没有清晰说明是房东、中介、公寓机构还是转租人。",
       followUpQuestion: "请问发布者身份是什么？是否能提供房东授权、营业执照或转租授权？",
+      evidence: "输入中未找到房东、中介、转租或公寓机构等身份说明。",
+      source: "input-gap",
+      verificationStatus: "pending",
     });
   }
 
@@ -383,6 +401,9 @@ export function scanListingRisk(input: ListingScanInput, profile: RentingProfile
       title: "付款方式缺失",
       reason: "输入信息没有明确押金和付款周期，实际启动成本可能高于预期。",
       followUpQuestion: "押金、付款周期、中介费和其他服务费分别是多少？",
+      evidence: "输入中未找到押金或付款周期说明。",
+      source: "input-gap",
+      verificationStatus: "pending",
     });
   }
 
@@ -392,6 +413,9 @@ export function scanListingRisk(input: ListingScanInput, profile: RentingProfile
     title: rule.title,
     reason: rule.reason,
     followUpQuestion: rule.followUpQuestion,
+    evidence: `输入中出现“${rule.keywords.find((keyword) => textForRules.includes(keyword)) ?? rule.keywords[0]}”。`,
+    source: "local-rule",
+    verificationStatus: "pending",
   }));
 
   const allRisks = [

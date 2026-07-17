@@ -333,7 +333,7 @@ export function ScanPage({ profile, onSaveCandidate }: ScanPageProps) {
             <p className="section-kicker">02 / 02 · 主要结论</p>
             <h2>AI 分析结果</h2>
           </div>
-          {aiResult ? <span className="ai-source-badge">{aiResult.metadata.mock ? "Mock 演示" : "视觉模型"}</span> : null}
+          {aiResult ? <span className="ai-source-badge">{aiResult.metadata.mock ? "本地演示结果" : "视觉模型"}</span> : null}
         </div>
 
         <AiResultBoundary result={aiResult} status={aiStatus} errorMessage={aiErrorMessage} />

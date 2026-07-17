@@ -12,8 +12,28 @@ import { validateAiRequest } from "./utils/validateAiRequest.js";
 
 const config = loadAiConfig();
 
+const SECURITY_HEADERS = {
+  "Content-Security-Policy": [
+    "default-src 'self'",
+    "base-uri 'self'",
+    "connect-src 'self'",
+    "font-src 'self' data:",
+    "form-action 'self'",
+    "frame-ancestors 'none'",
+    "img-src 'self' data: blob:",
+    "object-src 'none'",
+    "script-src 'self'",
+    "style-src 'self' 'unsafe-inline'",
+  ].join("; "),
+  "Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=()",
+  "Referrer-Policy": "strict-origin-when-cross-origin",
+  "X-Content-Type-Options": "nosniff",
+  "X-Frame-Options": "DENY",
+};
+
 function sendJson(response, status, body) {
   const headers = {
+    ...SECURITY_HEADERS,
     "Content-Type": "application/json; charset=utf-8",
     "Cache-Control": "no-store",
     "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
@@ -89,11 +109,10 @@ function getContentType(ext) {
 function sendStatic(response, status, filePath, cacheControl) {
   const data = readFileSync(filePath);
   response.writeHead(status, {
+    ...SECURITY_HEADERS,
     "Content-Type": getContentType(extname(filePath)),
     "Cache-Control": cacheControl,
-    "X-Content-Type-Options": "nosniff",
-    "X-Frame-Options": "DENY",
-    "Referrer-Policy": "strict-origin-when-cross-origin",
+    ...(config.isProduction ? { "Strict-Transport-Security": "max-age=31536000; includeSubDomains" } : {}),
   });
   response.end(data);
 }
@@ -112,7 +131,7 @@ function serveStatic(response, pathname) {
 
   if (existsSync(filePath) && statSync(filePath).isFile()) {
     const ext = extname(filePath);
-    const cacheControl = ext === ".html" ? "no-store" : "public, max-age=3600";
+    const cacheControl = ext === ".html" ? "no-store" : "public, max-age=31536000, immutable";
     sendStatic(response, 200, filePath, cacheControl);
     return true;
   }

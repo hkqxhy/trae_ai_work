@@ -12,6 +12,7 @@ import {
   clearViewingNotes,
   loadViewingNotes,
   saveViewingNotes,
+  viewingDecisionLabels,
   type ViewingNotes,
 } from "../utils/viewingNotesStorage";
 
@@ -25,10 +26,15 @@ const categoryOrder: ViewingChecklistCategory[] = [
 
 interface ViewingChecklistPageProps {
   candidates: CandidateListing[];
+  initialCandidateId?: string;
 }
 
-export function ViewingChecklistPage({ candidates }: ViewingChecklistPageProps) {
-  const [selectedCandidateId, setSelectedCandidateId] = useState(candidates[0]?.id ?? "");
+export function ViewingChecklistPage({ candidates, initialCandidateId = "" }: ViewingChecklistPageProps) {
+  const [selectedCandidateId, setSelectedCandidateId] = useState(
+    candidates.some((candidate) => candidate.id === initialCandidateId)
+      ? initialCandidateId
+      : candidates[0]?.id ?? "",
+  );
   const selectedCandidate =
     candidates.find((candidate) => candidate.id === selectedCandidateId) ?? candidates[0];
   const customItems = useMemo(
@@ -51,12 +57,23 @@ export function ViewingChecklistPage({ candidates }: ViewingChecklistPageProps) 
   const completionPercent = allItems.length
     ? Math.round((completedCount / allItems.length) * 100)
     : 0;
+  const unresolvedRisks = selectedCandidate?.scanResult.risks.filter(
+    (risk) => risk.verificationStatus !== "explained" && risk.verificationStatus !== "not_applicable",
+  ) ?? [];
+  const criticalUncheckedCount = customItems.filter((item) => !checkedItems[item.id]).length;
+  const canContinue = completionPercent >= 80 && criticalUncheckedCount === 0 && unresolvedRisks.length === 0;
 
   useEffect(() => {
     setCheckedItems(loadViewingChecklistProgress(progressContextId));
     setViewingNotes(loadViewingNotes(progressContextId));
     setNotesStatus("已载入当前备注");
   }, [progressContextId]);
+
+  useEffect(() => {
+    if (initialCandidateId && candidates.some((candidate) => candidate.id === initialCandidateId)) {
+      setSelectedCandidateId(initialCandidateId);
+    }
+  }, [candidates, initialCandidateId]);
 
   function toggleItem(itemId: string) {
     setCheckedItems((current) => {
@@ -74,7 +91,7 @@ export function ViewingChecklistPage({ candidates }: ViewingChecklistPageProps) 
     setCheckedItems({});
   }
 
-  function updateNotes(field: keyof Pick<ViewingNotes, "summary" | "followUps">, value: string) {
+  function updateNotes(field: keyof Pick<ViewingNotes, "summary" | "followUps" | "decision">, value: string) {
     setViewingNotes((current) => ({ ...current, [field]: value }));
     setNotesStatus("有未保存修改");
   }
@@ -87,7 +104,7 @@ export function ViewingChecklistPage({ candidates }: ViewingChecklistPageProps) 
 
   function clearNotes() {
     clearViewingNotes(progressContextId);
-    setViewingNotes({ summary: "", followUps: "" });
+    setViewingNotes({ summary: "", followUps: "", decision: "undecided" });
     setNotesStatus("备注已清空");
   }
 
@@ -212,12 +229,44 @@ export function ViewingChecklistPage({ candidates }: ViewingChecklistPageProps) 
 
       <section className="panel span-full viewing-notes-panel">
         <div className="panel-heading">
-          <p className="section-kicker">看房备注</p>
-          <h2>把现场发现和待确认问题留在这套房下面</h2>
+          <p className="section-kicker">现场结论</p>
+          <h2>把看房结果变成可复核的决定</h2>
           <p>
-            备注会按当前候选房源分别保存在本地。切换房源时，会自动加载对应记录。
+            结论会按当前候选房源分别保存在本地。系统会同时提示仍未完成的核验，不用只凭印象做决定。
           </p>
         </div>
+
+        <div className={canContinue ? "viewing-readiness ready" : "viewing-readiness blocked"}>
+          <div>
+            <span>推进条件</span>
+            <strong>{canContinue ? "现场核验已具备继续判断的基础" : "仍有事项需要核实"}</strong>
+          </div>
+          <ul>
+            <li>{completionPercent}% 清单已完成</li>
+            <li>{criticalUncheckedCount} 项房源定制任务未完成</li>
+            <li>{unresolvedRisks.length} 条风险尚未解释或排除</li>
+          </ul>
+        </div>
+
+        <fieldset className="viewing-decision-fieldset">
+          <legend>本次看房结论</legend>
+          <div className="viewing-decision-options">
+            {(Object.entries(viewingDecisionLabels) as Array<[ViewingNotes["decision"], string]>).map(
+              ([value, label]) => (
+                <label key={value}>
+                  <input
+                    checked={viewingNotes.decision === value}
+                    name="viewing-decision"
+                    type="radio"
+                    value={value}
+                    onChange={() => updateNotes("decision", value)}
+                  />
+                  <span>{label}</span>
+                </label>
+              ),
+            )}
+          </div>
+        </fieldset>
 
         <div className="viewing-notes-grid">
           <label>
@@ -225,7 +274,7 @@ export function ViewingChecklistPage({ candidates }: ViewingChecklistPageProps) 
             <textarea
               value={viewingNotes.summary}
               onChange={(event) => updateNotes("summary", event.target.value)}
-              placeholder="例如：采光可以，但卫生间有反味；墙角未发现霉斑；门锁需要更换"
+              placeholder="写下支持当前结论的事实，例如采光、噪声、异味、设施状态和现场证据"
             />
           </label>
           <label>
@@ -305,12 +354,6 @@ export function ViewingChecklistPage({ candidates }: ViewingChecklistPageProps) 
         );
       })}
 
-      <section className="panel span-full checklist-boundary">
-        <strong>看房流程已形成完整闭环</strong>
-        <p>
-          当前已支持通用清单、风险定制、现场勾选进度和按候选房源保存备注。
-        </p>
-      </section>
     </div>
   );
 }

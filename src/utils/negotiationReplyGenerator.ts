@@ -75,14 +75,14 @@ function buildReply(rule: ScenarioRule, goal: string, style: NegotiationReplySty
   const questionText = rule.questions.join("另外，");
 
   if (style === "firm") {
-    return `我需要先说明，我不会在身份、费用和合同信息未核验完整前付款或签约。我的目标是${goalText}。请先明确：${questionText}。相关内容确认并形成书面记录后，我再决定是否继续。`;
+    return `我需要先说明，我不会在身份、费用和合同信息未核验完整前付款或签约。我的目标是${goalText}。请先明确：${questionText} 相关内容确认并形成书面记录后，我再决定是否继续。`;
   }
 
   if (style === "inquisitive") {
-    return `我还需要补充确认一些信息，再决定下一步。我的目标是${goalText}。请问：${questionText}？也请把对应材料或费用明细一并发给我，谢谢。`;
+    return `我还需要补充确认一些信息，再决定下一步。我的目标是${goalText}。请问：${questionText} 也请把对应材料或费用明细一并发给我，谢谢。`;
   }
 
-  return `谢谢说明，我对房源仍有兴趣。为了稳妥推进，我希望先${goalText}。麻烦帮我确认：${questionText}。信息核对清楚后，我会尽快给出决定，谢谢。`;
+  return `谢谢说明，我对房源仍有兴趣。为了稳妥推进，我希望${goalText}。麻烦帮我确认：${questionText} 信息核对清楚后，我会尽快给出决定，谢谢。`;
 }
 
 function getGeneralRule(): ScenarioRule {

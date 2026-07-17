@@ -12,7 +12,7 @@ export function loadAiConfig(env = process.env) {
 
   const qwenApiKey = env.QWEN_API_KEY || env.DASHSCOPE_API_KEY || "";
   const provider = (env.AI_PROVIDER || (qwenApiKey ? "qwen" : "mock")).toLowerCase();
-  const isProduction = env.NODE_ENV === "production";
+  const isProduction = env.NODE_ENV === "production" || env.APP_ENV === "production";
 
   return {
     provider,

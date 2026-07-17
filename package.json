@@ -3,6 +3,9 @@
   "private": true,
   "version": "0.6.0",
   "type": "module",
+  "engines": {
+    "node": ">=20.18.0 <23"
+  },
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "dev:server": "node server/index.js",
@@ -10,6 +13,8 @@
     "start:prod": "npm run build && node server/index.js",
     "build": "tsc -b && vite build",
     "preview": "vite preview --host 127.0.0.1",
+    "test": "vitest run",
+    "test:core": "vitest run src",
     "test:ai:mock": "node server/tests/aiMock.test.js",
     "test:ai:live": "node server/tests/aiLiveSmoke.test.js"
   },
@@ -18,10 +23,11 @@
     "react-dom": "^19.2.3"
   },
   "devDependencies": {
-    "@vitejs/plugin-react": "^4.3.4",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^4.3.4",
     "typescript": "^5.9.3",
-    "vite": "^6.4.3"
+    "vite": "^6.4.3",
+    "vitest": "^4.1.10"
   }
 }
