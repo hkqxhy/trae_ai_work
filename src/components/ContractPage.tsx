@@ -1,6 +1,12 @@
-import { useState } from "react";
-import type { ContractScanResult, RiskLevel } from "../models/renting";
+import { useEffect, useState } from "react";
+import type { CandidateListing, ContractScanResult, RiskLevel } from "../models/renting";
 import { scanContractRisk } from "../utils/contractRiskScanner";
+import {
+  createContractReviewRecord,
+  loadContractReviews,
+  saveContractReview,
+  type ContractReviewRecord,
+} from "../utils/contractReviewStorage";
 
 const contractSample =
   "租赁期限为一年，押一付三。乙方提前退租视为违约，押金不予退还，并需支付剩余租期租金的 30% 作为违约金。物业费、网络费、管理费由乙方承担，水电按公寓标准结算；管理方有权调整服务费收费标准。房屋及附属设施的全部维修费用由乙方承担。";
@@ -14,10 +20,37 @@ const riskLevelLabels: Record<RiskLevel, string> = {
   low: "暂未发现明显风险",
 };
 
-export function ContractPage() {
+export function ContractPage({
+  candidates,
+  initialCandidateId = "",
+}: {
+  candidates: CandidateListing[];
+  initialCandidateId?: string;
+}) {
+  const defaultCandidateId = candidates.some((candidate) => candidate.id === initialCandidateId)
+    ? initialCandidateId
+    : candidates[0]?.id ?? "";
   const [contractText, setContractText] = useState("");
   const [context, setContext] = useState("");
   const [result, setResult] = useState<ContractScanResult | null>(null);
+  const [selectedCandidateId, setSelectedCandidateId] = useState(defaultCandidateId);
+  const [history, setHistory] = useState<ContractReviewRecord[]>(() =>
+    loadContractReviews(defaultCandidateId),
+  );
+
+  useEffect(() => {
+    const candidateId = candidates.some((candidate) => candidate.id === selectedCandidateId)
+      ? selectedCandidateId
+      : candidates[0]?.id ?? "";
+    if (candidateId !== selectedCandidateId) setSelectedCandidateId(candidateId);
+    setHistory(loadContractReviews(candidateId));
+  }, [candidates, selectedCandidateId]);
+
+  useEffect(() => {
+    if (initialCandidateId && candidates.some((candidate) => candidate.id === initialCandidateId)) {
+      setSelectedCandidateId(initialCandidateId);
+    }
+  }, [candidates, initialCandidateId]);
 
   function loadSample(sample: string, sampleContext: string) {
     setContractText(sample);
@@ -36,7 +69,14 @@ export function ContractPage() {
       return;
     }
 
-    setResult(scanContractRisk(contractText));
+    const nextResult = scanContractRisk(contractText);
+    setResult(nextResult);
+    if (selectedCandidateId) {
+      saveContractReview(
+        createContractReviewRecord(selectedCandidateId, context, contractText, nextResult),
+      );
+      setHistory(loadContractReviews(selectedCandidateId));
+    }
   }
 
   return (
@@ -70,9 +110,25 @@ export function ContractPage() {
       </section>
 
       <section className="panel contract-input-panel">
+        <label className="contract-field contract-candidate-field">
+          <span>关联候选房源</span>
+          <select
+            value={selectedCandidateId}
+            onChange={(event) => {
+              setSelectedCandidateId(event.target.value);
+              setResult(null);
+            }}
+          >
+            <option value="">不关联，仅本次检查</option>
+            {candidates.map((candidate) => (
+              <option key={candidate.id} value={candidate.id}>{candidate.title}</option>
+            ))}
+          </select>
+        </label>
         <label className="contract-field">
           <span>合同条款或费用明细</span>
           <textarea
+            maxLength={50000}
             value={contractText}
             onChange={(event) => {
               setContractText(event.target.value);
@@ -132,12 +188,52 @@ export function ContractPage() {
 
       {result ? <ContractResult result={result} /> : null}
 
-      <section className="panel span-full checklist-boundary">
-        <strong>本轮功能边界</strong>
-        <p>当前规则版已识别押金、违约、费用明细与维修责任。AI 合同总结按现有计划暂缓；结果不构成法律意见。</p>
-      </section>
+      {selectedCandidateId ? (
+        <section className="panel span-full contract-history-panel">
+          <div className="panel-heading">
+            <p className="section-kicker">检查记录</p>
+            <h2>同一套房的合同变化可以回看</h2>
+            <p>每次扫描都会保留时间、结果和原文，最多保存最近 10 次。</p>
+          </div>
+          {history.length ? (
+            <div className="contract-history-list">
+              {history.map((record) => (
+                <button
+                  type="button"
+                  key={record.id}
+                  onClick={() => {
+                    setContractText(record.contractText);
+                    setContext(record.context);
+                    setResult(record.result);
+                  }}
+                >
+                  <span>{formatReviewTime(record.createdAt)}</span>
+                  <strong>{riskLevelLabels[record.result.level]}</strong>
+                  <small>{record.result.findings.length} 项提示</small>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="empty-box">
+              <strong>这套房还没有合同检查记录</strong>
+              <span>完成扫描后，结果会自动关联到当前候选。</span>
+            </div>
+          )}
+        </section>
+      ) : null}
+
+      <p className="product-boundary-note">合同检查仅作风险提示，不构成法律意见；付款和签署前请核对完整原件与合同主体。</p>
     </div>
   );
+}
+
+function formatReviewTime(value: string) {
+  return new Intl.DateTimeFormat("zh-CN", {
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(value));
 }
 
 function ContractResult({ result }: { result: ContractScanResult }) {

@@ -4,6 +4,7 @@ import type { AiNegotiationResult, AiRequestStatus } from "../models/ai";
 import type { NegotiationReplyResult, NegotiationReplyStyle } from "../models/renting";
 import { generateNegotiationReply } from "../utils/negotiationReplyGenerator";
 import { requestNegotiationAiReply } from "../api/aiClient";
+import { auditNegotiationReply } from "../utils/negotiationSafetyAudit";
 
 const pressureSample =
   "中介说：这套房今天很多人看，你要是确定就先转 1000 元定金，我帮你锁房。合同等签约当天再看，定金正常不退。";
@@ -234,14 +235,6 @@ export function NegotiationPage() {
           >
             生成规则回复
           </button>
-          <button
-            className="button primary"
-            disabled={!message.trim() || !goal.trim() || aiStatus === "loading"}
-            type="button"
-            onClick={generateAiReply}
-          >
-            {aiResult ? "重新 AI 生成" : "AI 生成回复"}
-          </button>
         </div>
       </section>
 
@@ -256,6 +249,7 @@ export function NegotiationPage() {
             <span>建议回复</span>
             <textarea value={editableReply} onChange={(event) => setEditableReply(event.target.value)} />
           </label>
+          <ReplySafetyAudit reply={editableReply} sourceText={`${message}\n${goal}`} />
           <div className="negotiation-result-grid">
             <div>
               <strong>识别信号</strong>
@@ -287,10 +281,10 @@ export function NegotiationPage() {
         <div className="ai-actions">
           <span>
             {aiStatus === "loading"
-              ? "正在请求服务端千问适配层"
+              ? "正在生成回复"
               : aiResult
                 ? "已生成可编辑回复"
-                : "需要你手动触发，浏览器不会保存敏感配置"}
+                : "需要你主动触发，结果生成后仍可编辑"}
           </span>
           <div>
             {aiStatus === "loading" ? (
@@ -336,6 +330,7 @@ export function NegotiationPage() {
               <span>AI 建议回复</span>
               <textarea value={editableAiReply} onChange={(event) => setEditableAiReply(event.target.value)} />
             </label>
+            <ReplySafetyAudit reply={editableAiReply} sourceText={`${message}\n${goal}`} />
             <div className="negotiation-result-grid">
               <div>
                 <strong>AI 识别信号</strong>
@@ -374,10 +369,31 @@ export function NegotiationPage() {
         ) : null}
       </section>
 
-      <section className="panel span-full checklist-boundary">
-        <strong>本轮功能边界</strong>
-        <p>当前支持本地规则回复与 AI 回复生成。回复不会自动发送，发送前请自行核对事实、金额、合同和语气。</p>
-      </section>
+      <p className="product-boundary-note">
+        回复不会自动发送。复制或发送前，请自行核对事实、金额、时间、合同依据和承诺边界。
+      </p>
     </div>
+  );
+}
+
+function ReplySafetyAudit({ reply, sourceText }: { reply: string; sourceText: string }) {
+  const audit = auditNegotiationReply(reply, sourceText);
+  const reviewCount = audit.filter((item) => item.status === "review").length;
+
+  return (
+    <section className={reviewCount ? "reply-safety-audit needs-review" : "reply-safety-audit clear"} aria-live="polite">
+      <div className="reply-safety-heading">
+        <strong>发送前检查</strong>
+        <span>{reviewCount ? `${reviewCount} 项需要确认` : "未发现明显问题"}</span>
+      </div>
+      <div className="reply-safety-grid">
+        {audit.map((item) => (
+          <article className={item.status} key={item.id}>
+            <strong>{item.label}</strong>
+            <p>{item.message}</p>
+          </article>
+        ))}
+      </div>
+    </section>
   );
 }

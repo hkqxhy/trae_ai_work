@@ -37,6 +37,7 @@ export interface ListingCost {
 }
 
 export type RiskLevel = "low" | "medium" | "high";
+export type RiskVerificationStatus = "pending" | "confirmed" | "explained" | "rejected" | "not_applicable";
 
 export interface ListingRisk {
   id: string;
@@ -44,6 +45,9 @@ export interface ListingRisk {
   title: string;
   reason: string;
   followUpQuestion: string;
+  evidence?: string;
+  source?: "local-rule" | "input-gap" | "link-check" | "image-check" | "ai";
+  verificationStatus?: RiskVerificationStatus;
 }
 
 export interface ListingScanFact {
@@ -97,7 +101,13 @@ export interface CandidateListing {
 
 export interface CandidateComparison {
   monthlyRent?: number;
+  monthlyServiceFee?: number;
+  monthlyUtilitiesEstimate?: number;
+  otherMonthlyCost?: number;
   totalMonthlyCost?: number;
+  depositMonths?: number;
+  agencyFee?: number;
+  otherUpfrontCost?: number;
   upfrontCost?: number;
   commuteMinutes?: number;
   metroDistanceMeters?: number;

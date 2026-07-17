@@ -52,7 +52,7 @@ export function AiResultBoundary({ result, status, errorMessage }: AiResultBound
           <span>AI 主结论</span>
           <strong>{result.conclusion}</strong>
         </div>
-        <small>{result.metadata.mock ? "Mock 演示" : result.metadata.model}</small>
+        <small>{result.metadata.mock ? "本地演示结果" : result.metadata.model}</small>
       </div>
 
       {result.reasons.length ? (

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { starterProfile } from "../data/mockData";
 import type { PriorityLevel, RentingProfile, UserPreference } from "../models/renting";
 import {
@@ -8,6 +8,8 @@ import {
   priorityOrder,
   sortPreferences,
 } from "../utils/profileSummary";
+import { emptyRentingProfile } from "../utils/profileStorage";
+import { isProfileComplete } from "../utils/decisionProgress";
 
 interface ProfilePageProps {
   profile: RentingProfile;
@@ -18,9 +20,17 @@ interface ProfilePageProps {
 export function ProfilePage({ profile, onSave, onReset }: ProfilePageProps) {
   const [draft, setDraft] = useState<RentingProfile>(profile);
   const [newPreference, setNewPreference] = useState("");
-  const [saveMessage, setSaveMessage] = useState("已载入当前画像");
+  const [saveMessage, setSaveMessage] = useState(profile.city ? "已载入本地画像" : "尚未保存画像");
+  const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const summary = useMemo(() => buildProfileSummary(draft), [draft]);
   const groupedPreferences = useMemo(() => groupPreferences(draft.preferences), [draft.preferences]);
+  const hasCompleteDraft = isProfileComplete(draft);
+
+  useEffect(() => {
+    setDraft(profile);
+    setSaveMessage(profile.city ? "已载入本地画像" : "尚未保存画像");
+    setValidationErrors([]);
+  }, [profile]);
 
   function updateField<Key extends keyof RentingProfile>(key: Key, value: RentingProfile[Key]) {
     setDraft((current) => ({ ...current, [key]: value }));
@@ -67,26 +77,42 @@ export function ProfilePage({ profile, onSave, onReset }: ProfilePageProps) {
   }
 
   function saveProfile() {
+    const errors = validateProfile(draft);
+    if (errors.length) {
+      setValidationErrors(errors);
+      setSaveMessage("请先修正未完成项");
+      return;
+    }
+
     const normalizedProfile: RentingProfile = {
       ...draft,
       city: draft.city.trim(),
       commuteTarget: draft.commuteTarget.trim(),
-      monthlyBudgetMin: Math.max(0, Math.min(draft.monthlyBudgetMin, draft.monthlyBudgetMax)),
-      monthlyBudgetMax: Math.max(draft.monthlyBudgetMin, draft.monthlyBudgetMax),
+      monthlyBudgetMin: draft.monthlyBudgetMin,
+      monthlyBudgetMax: draft.monthlyBudgetMax,
       maxCommuteMinutes: Math.max(10, draft.maxCommuteMinutes),
       preferences: sortPreferences(draft.preferences),
     };
 
     setDraft(normalizedProfile);
     onSave(normalizedProfile);
+    setValidationErrors([]);
     setSaveMessage("画像已保存到本地");
   }
 
   function resetProfile() {
-    setDraft(starterProfile);
+    setDraft(emptyRentingProfile);
     setNewPreference("");
     onReset();
-    setSaveMessage("已恢复示例画像");
+    setValidationErrors([]);
+    setSaveMessage("画像已清空");
+  }
+
+  function loadExampleProfile() {
+    setDraft(starterProfile);
+    setNewPreference("");
+    setValidationErrors([]);
+    setSaveMessage("示例已填入，保存后才会成为你的画像");
   }
 
   return (
@@ -98,10 +124,21 @@ export function ProfilePage({ profile, onSave, onReset }: ProfilePageProps) {
           <p>这些信息会成为后续区域推荐、房源扫描和候选对比的基础。数据会保存在本地，不会上传。</p>
         </div>
 
-        <form className="profile-form" onSubmit={(event) => event.preventDefault()}>
+        <form className="profile-form" onSubmit={(event) => event.preventDefault()} noValidate>
+          {validationErrors.length ? (
+            <div className="form-error-summary" role="alert">
+              <strong>还不能保存画像</strong>
+              <ul>
+                {validationErrors.map((error) => (
+                  <li key={error}>{error}</li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
           <label>
             <span>目标城市</span>
             <input
+              required
               value={draft.city}
               onChange={(event) => updateField("city", event.target.value)}
               placeholder="例如：杭州"
@@ -111,6 +148,7 @@ export function ProfilePage({ profile, onSave, onReset }: ProfilePageProps) {
           <label>
             <span>通勤目标</span>
             <input
+              required
               value={draft.commuteTarget}
               onChange={(event) => updateField("commuteTarget", event.target.value)}
               placeholder="公司、学校或常去地点"
@@ -121,6 +159,7 @@ export function ProfilePage({ profile, onSave, onReset }: ProfilePageProps) {
             <label>
               <span>最低预算</span>
               <input
+                required
                 min="0"
                 step="100"
                 type="number"
@@ -132,6 +171,7 @@ export function ProfilePage({ profile, onSave, onReset }: ProfilePageProps) {
             <label>
               <span>最高预算</span>
               <input
+                required
                 min="0"
                 step="100"
                 type="number"
@@ -178,6 +218,7 @@ export function ProfilePage({ profile, onSave, onReset }: ProfilePageProps) {
             </div>
             <div className="add-preference">
               <input
+                aria-label="添加租房偏好"
                 value={newPreference}
                 onChange={(event) => setNewPreference(event.target.value)}
                 onKeyDown={(event) => {
@@ -197,6 +238,7 @@ export function ProfilePage({ profile, onSave, onReset }: ProfilePageProps) {
                 <article className="preference-row" key={preference.id}>
                   <strong>{preference.label}</strong>
                   <select
+                    aria-label={`${preference.label}的优先级`}
                     value={preference.level}
                     onChange={(event) => updatePreferenceLevel(preference.id, event.target.value as PriorityLevel)}
                   >
@@ -215,10 +257,13 @@ export function ProfilePage({ profile, onSave, onReset }: ProfilePageProps) {
           </div>
 
           <div className="form-actions">
-            <span>{saveMessage}</span>
+            <span aria-live="polite">{saveMessage}</span>
             <div>
               <button className="button secondary" type="button" onClick={resetProfile}>
-                重置示例
+                清空画像
+              </button>
+              <button className="button secondary" type="button" onClick={loadExampleProfile}>
+                填入示例
               </button>
               <button className="button primary" type="button" onClick={saveProfile}>
                 保存画像
@@ -229,63 +274,99 @@ export function ProfilePage({ profile, onSave, onReset }: ProfilePageProps) {
       </section>
 
       <aside className="profile-summary-column">
-        <section className="panel summary-panel">
-          <div className="panel-heading">
-            <p className="section-kicker">画像摘要</p>
-            <h2>当前决策基线</h2>
-          </div>
-          <p className="summary-brief">{summary.decisionBrief}</p>
-          <dl className="profile-list compact">
-            <div>
-              <dt>预算范围</dt>
-              <dd>{summary.budgetRange}</dd>
-            </div>
-            <div>
-              <dt>居住方式</dt>
-              <dd>{summary.housingMode}</dd>
-            </div>
-            <div>
-              <dt>必须满足</dt>
-              <dd>{summary.mustHaveText}</dd>
-            </div>
-          </dl>
-        </section>
-
-        <section className="panel">
-          <div className="panel-heading">
-            <p className="section-kicker">优先级排序</p>
-            <h2>先看什么，后妥协什么</h2>
-          </div>
-          <div className="priority-groups">
-            {groupedPreferences.map((group) => (
-              <div className="priority-group" key={group.level}>
-                <strong>{group.label}</strong>
-                {group.items.length ? (
-                  <ul>
-                    {group.items.map((item) => (
-                      <li key={item.id}>{item.label}</li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p>暂无条件</p>
-                )}
+        {hasCompleteDraft ? (
+          <>
+            <section className="panel summary-panel">
+              <div className="panel-heading">
+                <p className="section-kicker">画像摘要</p>
+                <h2>当前决策基线</h2>
               </div>
-            ))}
-          </div>
-        </section>
+              <p className="summary-brief">{summary.decisionBrief}</p>
+              <dl className="profile-list compact">
+                <div>
+                  <dt>预算范围</dt>
+                  <dd>{summary.budgetRange}</dd>
+                </div>
+                <div>
+                  <dt>居住方式</dt>
+                  <dd>{summary.housingMode}</dd>
+                </div>
+                <div>
+                  <dt>必须满足</dt>
+                  <dd>{summary.mustHaveText}</dd>
+                </div>
+              </dl>
+            </section>
 
-        <section className="panel">
-          <div className="panel-heading">
-            <p className="section-kicker">系统建议</p>
-            <h2>下一步筛房策略</h2>
-          </div>
-          <ul className="advice-list">
-            {summary.advice.map((advice) => (
-              <li key={advice}>{advice}</li>
-            ))}
-          </ul>
-        </section>
+            <section className="panel">
+              <div className="panel-heading">
+                <p className="section-kicker">优先级排序</p>
+                <h2>先看什么，后妥协什么</h2>
+              </div>
+              <div className="priority-groups">
+                {groupedPreferences.map((group) => (
+                  <div className="priority-group" key={group.level}>
+                    <strong>{group.label}</strong>
+                    {group.items.length ? (
+                      <ul>
+                        {group.items.map((item) => (
+                          <li key={item.id}>{item.label}</li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p>暂无条件</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <section className="panel">
+              <div className="panel-heading">
+                <p className="section-kicker">系统建议</p>
+                <h2>下一步筛房策略</h2>
+              </div>
+              <ul className="advice-list">
+                {summary.advice.map((advice) => (
+                  <li key={advice}>{advice}</li>
+                ))}
+              </ul>
+            </section>
+          </>
+        ) : (
+          <section className="panel profile-summary-empty">
+            <div className="panel-heading">
+              <p className="section-kicker">画像摘要</p>
+              <h2>完成必填项后生成</h2>
+            </div>
+            <p>补齐目标城市、通勤地点和有效预算后，系统才会生成你的决策基线和筛房策略。</p>
+            <ul className="advice-list">
+              <li>不使用默认城市或虚构预算替你做判断。</li>
+              <li>未保存的修改只停留在当前页面。</li>
+              <li>你可以主动填入示例，先了解画像如何工作。</li>
+            </ul>
+          </section>
+        )}
       </aside>
     </div>
   );
+}
+
+function validateProfile(profile: RentingProfile) {
+  const errors: string[] = [];
+  if (!profile.city.trim()) {
+    errors.push("请填写目标城市。");
+  }
+  if (!profile.commuteTarget.trim()) {
+    errors.push("请填写通勤目标。");
+  }
+  if (profile.monthlyBudgetMin <= 0 || profile.monthlyBudgetMax <= 0) {
+    errors.push("请填写大于 0 的预算范围。");
+  } else if (profile.monthlyBudgetMin > profile.monthlyBudgetMax) {
+    errors.push("最低预算不能高于最高预算。");
+  }
+  if (profile.maxCommuteMinutes < 10) {
+    errors.push("最长通勤时间不能少于 10 分钟。");
+  }
+  return errors;
 }

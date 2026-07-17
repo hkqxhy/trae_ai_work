@@ -1,3 +1,5 @@
+import { readStorageJson, removeStorageItem, writeStorageJson } from "./browserStorage";
+
 export type ViewingChecklistProgress = Record<string, boolean>;
 
 const STORAGE_PREFIX = "renting-radar.viewing-checklist.v1";
@@ -11,20 +13,10 @@ export function loadViewingChecklistProgress(contextId: string): ViewingChecklis
     return {};
   }
 
-  const rawProgress = window.localStorage.getItem(getStorageKey(contextId));
-
-  if (!rawProgress) {
-    return {};
-  }
-
-  try {
-    const parsedProgress: unknown = JSON.parse(rawProgress);
-    return parsedProgress && typeof parsedProgress === "object"
-      ? (parsedProgress as ViewingChecklistProgress)
-      : {};
-  } catch {
-    return {};
-  }
+  const parsedProgress = readStorageJson(getStorageKey(contextId));
+  return parsedProgress && typeof parsedProgress === "object"
+    ? (parsedProgress as ViewingChecklistProgress)
+    : {};
 }
 
 export function saveViewingChecklistProgress(
@@ -35,7 +27,7 @@ export function saveViewingChecklistProgress(
     return;
   }
 
-  window.localStorage.setItem(getStorageKey(contextId), JSON.stringify(progress));
+  return writeStorageJson(getStorageKey(contextId), progress);
 }
 
 export function clearViewingChecklistProgress(contextId: string) {
@@ -43,5 +35,5 @@ export function clearViewingChecklistProgress(contextId: string) {
     return;
   }
 
-  window.localStorage.removeItem(getStorageKey(contextId));
+  return removeStorageItem(getStorageKey(contextId));
 }

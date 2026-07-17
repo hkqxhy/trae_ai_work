@@ -3,6 +3,7 @@ import type { AiComparisonCandidateDecision, AiComparisonResult, AiRequestStatus
 import type { CandidateComparison, CandidateListing, RentingProfile, RiskLevel } from "../models/renting";
 import { requestComparisonAiDecision } from "../api/aiClient";
 import { scoreCandidateForComparison } from "../utils/comparisonScoring";
+import { applyCalculatedRentalCosts, calculateRentalCosts } from "../utils/rentalCost";
 
 interface ComparisonPageProps {
   candidates: CandidateListing[];
@@ -26,6 +27,7 @@ export function ComparisonPage({
   const [aiStatus, setAiStatus] = useState<AiRequestStatus>("idle");
   const [aiResult, setAiResult] = useState<AiComparisonResult | null>(null);
   const [aiErrorMessage, setAiErrorMessage] = useState("");
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const aiAbortRef = useRef<AbortController | null>(null);
   const localScoredCandidates = candidates
     .map((candidate) => ({
@@ -64,6 +66,14 @@ export function ComparisonPage({
   function deleteCandidate(candidateId: string) {
     resetAiDecision();
     onDeleteCandidate(candidateId);
+    setPendingDeleteId(null);
+  }
+
+  function updateCostBreakdown(candidate: CandidateListing, patch: CandidateComparison) {
+    updateCandidateComparison(
+      candidate.id,
+      applyCalculatedRentalCosts({ ...candidate.comparison, ...patch }),
+    );
   }
 
   async function runAiDecision() {
@@ -236,7 +246,7 @@ export function ComparisonPage({
                       <NumberInput
                         label="月租"
                         value={candidate.comparison.monthlyRent}
-                        onChange={(monthlyRent) => updateCandidateComparison(candidate.id, { monthlyRent })}
+                        onChange={(monthlyRent) => updateCostBreakdown(candidate, { monthlyRent })}
                       />
                     </td>
                     <td>
@@ -288,13 +298,24 @@ export function ComparisonPage({
                       </strong>
                     </td>
                     <td>
-                      <button
-                        className="button secondary danger-button"
-                        type="button"
-                        onClick={() => deleteCandidate(candidate.id)}
-                      >
-                        删除
-                      </button>
+                      {pendingDeleteId === candidate.id ? (
+                        <div className="table-delete-confirmation" role="alertdialog" aria-label={`删除 ${candidate.title}`}>
+                          <button className="button danger-button" type="button" onClick={() => deleteCandidate(candidate.id)}>
+                            确认删除
+                          </button>
+                          <button className="button secondary" type="button" onClick={() => setPendingDeleteId(null)}>
+                            取消
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          className="button secondary danger-button"
+                          type="button"
+                          onClick={() => setPendingDeleteId(candidate.id)}
+                        >
+                          删除
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -321,6 +342,11 @@ export function ComparisonPage({
                   <span>通勤 {score.commuteScore}</span>
                   <span>{score.isComparable ? `完整度 ${score.completenessScore}` : `缺少 ${score.requiredMissingFields.join("、")}`}</span>
                 </div>
+                <CostBreakdownEditor
+                  candidateTitle={candidate.title}
+                  comparison={candidate.comparison}
+                  onChange={(patch) => updateCostBreakdown(candidate, patch)}
+                />
                 <ul className="advice-list">
                   {score.explanation.map((item) => (
                     <li key={item}>{item}</li>
@@ -342,6 +368,102 @@ export function ComparisonPage({
       )}
     </div>
   );
+}
+
+interface CostBreakdownEditorProps {
+  candidateTitle: string;
+  comparison: CandidateComparison;
+  onChange: (patch: CandidateComparison) => void;
+}
+
+function CostBreakdownEditor({ candidateTitle, comparison, onChange }: CostBreakdownEditorProps) {
+  const calculated = calculateRentalCosts(comparison);
+
+  return (
+    <details className="cost-breakdown-editor">
+      <summary>
+        <span>真实成本明细</span>
+        <strong>
+          {calculated.totalMonthlyCost === undefined
+            ? "待补充月租"
+            : `约 ${formatCurrency(calculated.totalMonthlyCost)} / 月`}
+        </strong>
+      </summary>
+      <p>补充经常性费用和押金规则，系统会自动回填总月成本与首期需要准备的金额。</p>
+      <div className="cost-input-grid">
+        <label>
+          <span>月服务或管理费</span>
+          <NumberInput
+            label={`${candidateTitle} 月服务或管理费`}
+            value={comparison.monthlyServiceFee}
+            onChange={(monthlyServiceFee) => onChange({ monthlyServiceFee })}
+          />
+        </label>
+        <label>
+          <span>月水电网预估</span>
+          <NumberInput
+            label={`${candidateTitle} 月水电网预估`}
+            value={comparison.monthlyUtilitiesEstimate}
+            onChange={(monthlyUtilitiesEstimate) => onChange({ monthlyUtilitiesEstimate })}
+          />
+        </label>
+        <label>
+          <span>其他月费用</span>
+          <NumberInput
+            label={`${candidateTitle} 其他月费用`}
+            value={comparison.otherMonthlyCost}
+            onChange={(otherMonthlyCost) => onChange({ otherMonthlyCost })}
+          />
+        </label>
+        <label>
+          <span>押金月数</span>
+          <NumberInput
+            label={`${candidateTitle} 押金月数`}
+            value={comparison.depositMonths}
+            onChange={(depositMonths) => onChange({ depositMonths })}
+          />
+        </label>
+        <label>
+          <span>中介费</span>
+          <NumberInput
+            label={`${candidateTitle} 中介费`}
+            value={comparison.agencyFee}
+            onChange={(agencyFee) => onChange({ agencyFee })}
+          />
+        </label>
+        <label>
+          <span>其他一次性费用</span>
+          <NumberInput
+            label={`${candidateTitle} 其他一次性费用`}
+            value={comparison.otherUpfrontCost}
+            onChange={(otherUpfrontCost) => onChange({ otherUpfrontCost })}
+          />
+        </label>
+      </div>
+      <dl className="calculated-costs">
+        <div>
+          <dt>每月额外费用</dt>
+          <dd>{formatCurrency(calculated.monthlyExtras)}</dd>
+        </div>
+        <div>
+          <dt>押金金额</dt>
+          <dd>{calculated.depositAmount === undefined ? "待确认押金规则" : formatCurrency(calculated.depositAmount)}</dd>
+        </div>
+        <div>
+          <dt>首期准备</dt>
+          <dd>{calculated.upfrontCost === undefined ? "待确认押金规则" : formatCurrency(calculated.upfrontCost)}</dd>
+        </div>
+      </dl>
+    </details>
+  );
+}
+
+function formatCurrency(value: number) {
+  return new Intl.NumberFormat("zh-CN", {
+    style: "currency",
+    currency: "CNY",
+    maximumFractionDigits: 0,
+  }).format(value);
 }
 
 function calculateHybridScore(localScore: number, aiScore: number, aiResult: AiComparisonResult | null) {
